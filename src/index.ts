@@ -5,7 +5,6 @@ import { decodeEventData } from "./lib/util";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
   const { table } = decodeEventData(cloudEvent?.data);
-  console.log(process.env);
   if (!table) {
     console.error('No table found in event data');
     return;
