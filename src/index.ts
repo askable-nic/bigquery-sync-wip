@@ -4,6 +4,7 @@ import { syncData } from "./lib/data-syncs";
 import { decodeEventData } from "./lib/util";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
+  console.log(process.env.GOOGLE_APPLICATION_CREDENTIALS);
   const { table } = decodeEventData(cloudEvent?.data);
   if (!table) {
     console.error('No table found in event data');
