@@ -1,13 +1,12 @@
-import { savePipelineToTable, mongoConnect } from "../util";
+import { savePipelineToTable, BigqueryTable } from "../util";
 import { creditTypeMap, refundTypeMap, studyTypeMap } from "../constants";
-import { CreditActivity } from "../tables";
+
+import schema from "./schema.json";
 
 export const syncCreditActivity = async () => {
   const pipeline = [
     { $match: { type: { $in: creditTypeMap.map(([k]) => k).flat() } } },
     { $sort: { _id: -1 } },
-    // LIMIT FOR TESTING
-    { $limit: 3 },
 
     // DEFINE LOOKUPS
     {
@@ -33,6 +32,9 @@ export const syncCreditActivity = async () => {
     { $unwind: { path: "$booking", preserveNullAndEmptyArrays: true } },
     //// EXIT EARLY BASED ON BOOKING LOOKUP
     { $match: { "booking.config.demo": { $ne: true } } },
+
+    // LIMIT FOR TESTING
+    { $limit: 32 },
 
     {
       $lookup: {
@@ -186,11 +188,7 @@ export const syncCreditActivity = async () => {
           ],
         },
         Transaction_ID: {
-          $cond: [
-            "$_transaction_id",
-            { $toString: "$_transaction_id" },
-            null,
-          ],
+          $cond: ["$_transaction_id", { $toString: "$_transaction_id" }, null],
         },
         Transfer_From_Team_ID: {
           $cond: ["$_from_team_id", { $toString: "$_from_team_id" }, null],
@@ -210,10 +208,7 @@ export const syncCreditActivity = async () => {
             {
               $cond: [
                 {
-                  $lt: [
-                    "$created_date",
-                    new Date("2019-08-01T00:00:00+1000"),
-                  ],
+                  $lt: ["$created_date", new Date("2019-08-01T00:00:00+1000")],
                 },
                 100,
                 1,
@@ -245,5 +240,10 @@ export const syncCreditActivity = async () => {
       },
     },
   ];
-  return savePipelineToTable(pipeline, "credit_activity", CreditActivity);
+
+  return savePipelineToTable(
+    pipeline,
+    "credit_activity",
+    new BigqueryTable("credit_activity", "ID", schema)
+  );
 };

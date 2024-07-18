@@ -1,7 +1,12 @@
-import { MongoClient, ServerApiVersion, Document } from "mongodb";
-import { BigQuery } from "@google-cloud/bigquery";
+import {
+  BigQuery,
+  InsertRowsResponse,
+  TableField,
+} from "@google-cloud/bigquery";
+import { Document, MongoClient, ServerApiVersion } from "mongodb";
+
 import { TableName } from "./types";
-import { BigqueryTable } from "./tables";
+
 require("dotenv").config();
 
 type EventDataSchema = {
@@ -54,6 +59,33 @@ export const mongoConnect = async (dbName: string = "askable") => {
     db: await client.db(dbName),
   };
 };
+export class BigqueryTable {
+  name: string;
+  mergeTableName: string;
+  idColumn: string;
+  schema: TableField[] = [];
+  private schemaFieldNames: string[] = [];
+  // private schemaFieldDefinitions: Record<string, TableField> = {};
+  constructor(name: string, idColumn: string, schemaJson: unknown) {
+    this.name = name;
+    this.mergeTableName = `${name}_tmp_merge`;
+    this.idColumn = idColumn;
+    this.schema = schemaJson as TableField[];
+    this.schemaFieldNames = this.schema
+      .filter((field) => field.name)
+      .map((field) => field.name!);
+    // this.schema.forEach((field) => {
+    //   if (field.name) {
+    //     this.schemaFieldNames.push(field.name);
+    //     this.schemaFieldDefinitions[field.name] = field;
+    //   }
+    // });
+  }
+
+  get columns() {
+    return this.schemaFieldNames;
+  }
+}
 
 export const savePipelineToTable = async (
   pipeline: Document[],
@@ -65,14 +97,51 @@ export const savePipelineToTable = async (
   const { db, client: mongoClient } = await mongoConnect();
   const bigqueryClient = new BigQuery();
 
+  // TODO: move to the end
+  await bigqueryClient
+    .dataset(BIGQUERY_DATASET)
+    .table(table.mergeTableName)
+    .query(`TRUNCATE TABLE ${BIGQUERY_DATASET}.${table.mergeTableName}`);
+
   // if merge table has records, fail the job
 
   const cursor = db
     .collection(collection)
     .aggregate(pipeline, { readPreference: "secondaryPreferred" });
 
-  const rows = await cursor.toArray();
-  console.log(`Found ${rows.length} records`);
+  let insertDocsBatch: Document[] = [];
+  const insertChunkSize = 5;
+  let totalRows = 0;
+  const batchPromises: Promise<InsertRowsResponse>[] = [];
+  const queueInsertBatch = async () => {
+    if (insertDocsBatch.length === 0) {
+      return;
+    }
+    batchPromises.push(
+      bigqueryClient
+        .dataset(BIGQUERY_DATASET)
+        .table(table.mergeTableName)
+        .insert(insertDocsBatch)
+    );
+    insertDocsBatch = [];
+  };
+  for await (const row of cursor) {
+    totalRows += 1;
+    insertDocsBatch.push(row);
+    if (insertDocsBatch.length >= insertChunkSize) {
+      queueInsertBatch();
+    }
+  }
+  queueInsertBatch();
+  console.log("total rows", totalRows);
+  await Promise.all(batchPromises);
+
+  // Finished inserting rows, can close cursor and mongo client
+  await cursor.close();
+  await mongoClient.close();
+
+  // const rows = await cursor.toArray();
+  // console.log(`Found ${rows.length} records`);
 
   // insert batches of records into tmpMergeTable
   /*
@@ -80,15 +149,12 @@ export const savePipelineToTable = async (
   VALUES (...row1), (...row2), ..., (...rowN)
   */
 
-  console.log('writing to bigquery...', BIGQUERY_DATASET, table.mergeTableName, rows.length);
-  const tmpInsertResult = await bigqueryClient
-    .dataset(BIGQUERY_DATASET)
-    .table(table.mergeTableName)
-    .insert(rows);
-  console.log(tmpInsertResult);
-
-  await cursor.close();
-  await mongoClient.close();
+  // console.log('writing to bigquery...', BIGQUERY_DATASET, table.mergeTableName, rows.length);
+  // const tmpInsertResult = await bigqueryClient
+  //   .dataset(BIGQUERY_DATASET)
+  //   .table(table.mergeTableName)
+  //   .insert(rows);
+  // console.log(tmpInsertResult);
 
   // merge tmpMergeTable into table
   /*
