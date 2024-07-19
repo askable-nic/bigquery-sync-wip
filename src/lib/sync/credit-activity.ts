@@ -1,7 +1,5 @@
-import { savePipelineToTable, BigqueryTable } from "../util";
+import { syncPipelineToMergeTable } from "./sync-util";
 import { creditTypeMap, refundTypeMap, studyTypeMap } from "../constants";
-
-import schema from "./schema.json";
 
 export const syncCreditActivity = async () => {
   const pipeline = [
@@ -235,7 +233,7 @@ export const syncCreditActivity = async () => {
     },
   ];
 
-  return savePipelineToTable(pipeline, "credit_activity", {
+  return syncPipelineToMergeTable(pipeline, "credit_activity", {
     name: "credit_activity",
     idField: "ID",
   });
