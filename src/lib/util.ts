@@ -2,11 +2,11 @@ import { BigQuery, TableField } from "@google-cloud/bigquery";
 import { adapt, managedwriter } from "@google-cloud/bigquery-storage";
 import { JSONObject } from "@google-cloud/bigquery-storage/build/src/managedwriter/json_writer";
 import { PendingWrite } from "@google-cloud/bigquery-storage/build/src/managedwriter/pending_write";
+import { StreamConnection } from "@google-cloud/bigquery-storage/build/src/managedwriter/stream_connection";
+import { WriteStream } from "@google-cloud/bigquery-storage/build/src/managedwriter/stream_types";
 import { Document, MongoClient, ServerApiVersion } from "mongodb";
 
 import { TableName } from "./types";
-
-const { WriterClient, JSONWriter } = managedwriter;
 
 require("dotenv").config();
 
@@ -60,6 +60,11 @@ export const mongoConnect = async (dbName: string = "askable") => {
     db: await client.db(dbName),
   };
 };
+
+export type BigqueryTableSyncOptions = {
+  name: string;
+  idField: string;
+};
 export class BigqueryTable {
   name: string;
   mergeTableName: string;
@@ -88,143 +93,249 @@ export class BigqueryTable {
   }
 }
 
-export const savePipelineToTable = async (
-  pipeline: Document[],
-  collection: string,
-  table: BigqueryTable
-): Promise<{ created: 0; modified: 0 }> => {
-  const startTime = Date.now();
-  const timeElapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
-  const { BIGQUERY_DATASET } = env;
+class BqDataSync {
+  startTime: number = 0;
 
-  const { db, client: mongoClient } = await mongoConnect();
-  const bigqueryClient = new BigQuery();
+  tableName: string;
+  idField: string;
+  mergeTableName: string;
 
-  const [tableMetaData] = await bigqueryClient
-    .dataset(BIGQUERY_DATASET)
-    .table(table.mergeTableName)
-    .getMetadata();
+  _metadata?: {
+    projectId: string;
+    datasetId: string;
+    tableId: string;
+    fields: TableField[];
+  };
 
-  const { projectId, datasetId, tableId } =
-    tableMetaData.tableReference as Record<string, string>;
+  client: BigQuery;
+  destinationTable?: string;
+  writeClient?: managedwriter.WriterClient;
+  writeStream?: WriteStream;
+  connection?: StreamConnection;
+  writer?: managedwriter.JSONWriter;
+  writePromises: ReturnType<PendingWrite["getResult"]>[] = [];
+  pwOffset = 0;
 
-  // if merge table has records, fail the job
-  // TODO: move to end
-  console.log("Truncating table...");
-  await bigqueryClient
-    .dataset(BIGQUERY_DATASET)
-    .table(table.mergeTableName)
-    .query(`TRUNCATE TABLE ${BIGQUERY_DATASET}.${table.mergeTableName}`)
-    .catch((e) => {
-      console.warn("Failed to truncate table", e);
-    });
-  console.log(timeElapsed(), "Done");
+  ready = false;
+  loggerInterval: NodeJS.Timeout | null = null;
 
-  const cursor = db
-    .collection(collection)
-    .aggregate(pipeline, { readPreference: "secondaryPreferred" });
+  constructor(table: BigqueryTableSyncOptions) {
+    this.startTime = Date.now();
 
-  const destinationTable = `projects/${projectId}/datasets/${datasetId}/tables/${tableId}`;
-  const streamType = managedwriter.PendingStream;
-  const writeClient = new WriterClient({ projectId });
+    (this.tableName = table.name),
+      (this.idField = table.idField),
+      (this.mergeTableName = `${table.name}_tmp_merge`),
+      (this.client = new BigQuery());
+  }
 
-  try {
-    const writeStream = await writeClient.createWriteStreamFullResponse({
+  async init() {
+    const { BIGQUERY_DATASET } = env;
+    const { WriterClient, JSONWriter } = managedwriter;
+
+    const [tableMetaData] = await this.client
+      .dataset(BIGQUERY_DATASET)
+      .table(this.mergeTableName)
+      .getMetadata();
+
+    this._metadata = {
+      projectId: tableMetaData.tableReference?.projectId as string,
+      datasetId: tableMetaData.tableReference?.datasetId as string,
+      tableId: tableMetaData.tableReference?.tableId as string,
+      fields: (tableMetaData?.schema?.fields ?? []) as TableField[],
+    };
+
+    // TODO: fail if merge table has rows (update in progress)
+
+    this.destinationTable = `projects/${this.projectId}/datasets/${this.datasetId}/tables/${this.tableId}`;
+    const streamType = managedwriter.PendingStream;
+    this.writeClient = new WriterClient({ projectId: this.projectId });
+
+    this.writeStream = await this.writeClient.createWriteStreamFullResponse({
       streamType,
-      destinationTable,
+      destinationTable: this.destinationTable,
     });
-    if (!writeStream.name || !writeStream.tableSchema) {
+    if (!this.writeStream.name || !this.writeStream.tableSchema) {
       throw new Error("Stream ID invalid");
     }
-    console.log(`Stream created: ${writeStream.name}`);
+    console.log(`Stream created: ${this.writeStream.name}`);
 
     const protoDescriptor = adapt.convertStorageSchemaToProto2Descriptor(
-      writeStream.tableSchema,
+      this.writeStream.tableSchema,
       "root"
     );
 
     // console.log("Proto descriptor: ", protoDescriptor);
 
-    const connection = await writeClient.createStreamConnection({
-      streamId: writeStream.name,
+    this.connection = await this.writeClient.createStreamConnection({
+      streamId: this.writeStream.name,
     });
 
     // console.log("Connection created: ", connection);
 
-    const writer = new JSONWriter({
-      connection,
+    this.writer = new JSONWriter({
+      connection: this.connection,
       protoDescriptor,
     });
 
-    // console.log("Writer created: ", writer);
+    this.ready = true;
+  }
 
-    const writePromises: ReturnType<PendingWrite["getResult"]>[] = [];
-
-    let totalRows = 0;
-    let appendRowBatch: JSONObject[] = [];
-    let pwOffset = 0;
-
-    const loggingInterval = setInterval(() => {
+  startLogging(timeout: number, extra?: () => Record<string, any>) {
+    this.stopLogging();
+    this.loggerInterval = setInterval(() => {
       console.log({
-        timeElapsed: timeElapsed(),
-        rowsIterated: totalRows,
-        appendRowBatch: appendRowBatch.length,
-        pwOffset,
-        writePromisesTotal: writePromises.length,
+        timeElapsed: this.timeElapsed,
+        pwOffset: this.pwOffset,
+        writePromisesTotal: this.writePromises.length,
+        ...extra?.(),
       });
-    }, 3000);
-
-    for await (const row of cursor) {
-      totalRows += 1;
-      appendRowBatch.push(row);
-      if (appendRowBatch.length >= 1000) {
-        const pw = writer.appendRows(appendRowBatch, pwOffset);
-        pwOffset += appendRowBatch.length;
-        writePromises.push(pw.getResult());
-        appendRowBatch = [];
-      }
+    }, timeout);
+  }
+  stopLogging() {
+    if (this.loggerInterval) {
+      clearInterval(this.loggerInterval);
     }
-    if (appendRowBatch.length) {
-      const pw = writer.appendRows(appendRowBatch, pwOffset);
-      writePromises.push(pw.getResult());
+  }
+
+  writeBatch(rows: JSONObject[]) {
+    if (!this.ready || !this.writer) {
+      throw new Error("Not initialized");
     }
+    const pw = this.writer.appendRows(rows, this.pwOffset);
+    this.pwOffset += rows.length;
+    this.writePromises.push(pw.getResult());
+  }
 
-    console.log(timeElapsed(), `Rows pushed: ${totalRows}`);
+  async commitWrites() {
+    if (
+      !this.ready ||
+      !this.connection ||
+      !this.writeClient ||
+      !this.destinationTable ||
+      !this.writeStream?.name
+    ) {
+      throw new Error("Not initialized");
+    }
+    await Promise.all(this.writePromises);
+    this.writePromises = [];
 
-    await Promise.all(writePromises);
+    const rowCount = (await this.connection.finalize())?.rowCount;
+    console.log(this.timeElapsed, `Connection row count: ${rowCount}`);
 
-    clearInterval(loggingInterval);
-
-    const rowCount = (await connection.finalize())?.rowCount;
-    console.log(timeElapsed(), `Connection row count: ${rowCount}`);
-
-    const response = await writeClient.batchCommitWriteStream({
-      parent: destinationTable,
-      writeStreams: [writeStream.name],
+    const response = await this.writeClient.batchCommitWriteStream({
+      parent: this.destinationTable,
+      writeStreams: [this.writeStream.name],
     });
 
-    console.log(timeElapsed(), response);
-  } catch (err) {
-    console.log(err);
-  } finally {
-    writeClient.close();
+    console.log(this.timeElapsed, response);
   }
+
+  async truncateMergeTable() {
+    // TODO: make sure the buffer is clear:
+    /* (TRUNCATE DML statement over table operations_data_warehouse_test.credit_activity_tmp_merge would affect rows in the streaming buffer, which is not supported) */
+    console.log("Truncating table...");
+    await this.client
+      .dataset(this.datasetId)
+      .table(this.mergeTableName)
+      .query(`TRUNCATE TABLE ${this.datasetId}.${this.mergeTableName}`)
+      .catch((e) => {
+        console.warn("Failed to truncate table", e);
+      });
+    console.log(this.timeElapsed, "Done");
+  }
+
+  async mergeTmpTable() {
+    // TODO: make sure the buffer is clear:
+    /* (TRUNCATE DML statement over table operations_data_warehouse_test.credit_activity_tmp_merge would affect rows in the streaming buffer, which is not supported) */
+  }
+
+  async cleanup() {
+    this.stopLogging();
+    this.writeClient?.close();
+  }
+
+  get timeElapsed() {
+    return `${((Date.now() - this.startTime) / 1000).toFixed(1)}s`;
+  }
+  get projectId() {
+    if (!this._metadata?.projectId) {
+      throw new Error("projectId is not set");
+    }
+    return this._metadata.projectId;
+  }
+  get datasetId() {
+    if (!this._metadata?.datasetId) {
+      throw new Error("datasetId is not set");
+    }
+    return this._metadata.datasetId;
+  }
+  get tableId() {
+    if (!this._metadata?.tableId) {
+      throw new Error("tableId is not set");
+    }
+    return this._metadata.tableId;
+  }
+  get fields() {
+    if (!this._metadata?.fields) {
+      throw new Error("fields is not set");
+    }
+    return this._metadata.fields;
+  }
+}
+
+export const savePipelineToTable = async (
+  pipeline: Document[],
+  collection: string,
+  table: BigqueryTableSyncOptions
+): Promise<{ created: 0; modified: 0 }> => {
+  const dataSync = new BqDataSync(table);
+  await dataSync.init();
+
+  const { db, client: mongoClient } = await mongoConnect();
+  const cursor = db
+    .collection(collection)
+    .aggregate(pipeline, { readPreference: "secondaryPreferred" });
+
+  await dataSync.truncateMergeTable(); // TODO: move to end
+
+  let totalRows = 0;
+  let appendRowBatch: JSONObject[] = [];
+
+  dataSync.startLogging(500, () => ({
+    totalRows,
+    appendRowBatch: appendRowBatch.length,
+  }));
+
+  for await (const row of cursor) {
+    totalRows += 1;
+    appendRowBatch.push(row);
+    if (appendRowBatch.length >= 1000) {
+      dataSync.writeBatch(appendRowBatch);
+      appendRowBatch = [];
+    }
+  }
+  if (appendRowBatch.length) {
+    dataSync.writeBatch(appendRowBatch);
+  }
+
+  await dataSync.commitWrites();
 
   // Finished inserting rows, can close cursor and mongo client
   await cursor.close();
   await mongoClient.close();
 
-  // console.log('writing to bigquery...', BIGQUERY_DATASET, table.mergeTableName, rows.length);
-  // const tmpInsertResult = await bigqueryClient
-  //   .dataset(BIGQUERY_DATASET)
-  //   .table(table.mergeTableName)
-  //   .insert(rows);
-  // console.log(tmpInsertResult);
+  await dataSync.cleanup();
+
+  // const mergeQuery = [
+  //   `MERGE ${BIGQUERY_DATASET}.${table.name} T`,
+  //   `USING ${BIGQUERY_DATASET}.${mergeTableName} S`,
+
+  // ].join('\n')
 
   // merge tmpMergeTable into table
   /*
   MERGE ${BIGQUERY_DATASET}.${table.name} T
-  USING ${BIGQUERY_DATASET}.${table.mergeTableName} S
+  USING ${BIGQUERY_DATASET}.${mergeTableName} S
   ON T.ID = S.ID
   WHEN MATCHED THEN
     UPDATE SET T.col1 = S.col1, T.col2 = S.col2, ...

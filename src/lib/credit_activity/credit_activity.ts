@@ -235,9 +235,8 @@ export const syncCreditActivity = async () => {
     },
   ];
 
-  return savePipelineToTable(
-    pipeline,
-    "credit_activity",
-    new BigqueryTable("credit_activity", "ID", schema)
-  );
+  return savePipelineToTable(pipeline, "credit_activity", {
+    name: "credit_activity",
+    idField: "ID",
+  });
 };
