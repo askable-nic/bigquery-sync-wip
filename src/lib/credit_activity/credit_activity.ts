@@ -34,7 +34,7 @@ export const syncCreditActivity = async () => {
     { $match: { "booking.config.demo": { $ne: true } } },
 
     // LIMIT FOR TESTING
-    { $limit: 32 },
+    { $limit: 990 },
 
     {
       $lookup: {
@@ -87,15 +87,9 @@ export const syncCreditActivity = async () => {
       $project: {
         _id: false,
         ID: { $toString: "$_id" },
-        Created: {
-          $dateToString: { date: "$created_date" },
-        },
+        Created: "$created_date",
         Updated: {
-          $dateToString: {
-            date: {
-              $cond: ["$updated", { $toDate: "$updated" }, "$created_date"],
-            },
-          },
+          $cond: ["$updated", { $toDate: "$updated" }, "$created_date"],
         },
         Team_ID: { $cond: ["$_team_id", { $toString: "$_team_id" }, null] },
         Team_Name: "$team.name",

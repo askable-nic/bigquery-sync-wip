@@ -1,11 +1,12 @@
-import {
-  BigQuery,
-  InsertRowsResponse,
-  TableField,
-} from "@google-cloud/bigquery";
+import { BigQuery, TableField } from "@google-cloud/bigquery";
+import { adapt, managedwriter } from "@google-cloud/bigquery-storage";
+import { JSONObject } from "@google-cloud/bigquery-storage/build/src/managedwriter/json_writer";
+import { PendingWrite } from "@google-cloud/bigquery-storage/build/src/managedwriter/pending_write";
 import { Document, MongoClient, ServerApiVersion } from "mongodb";
 
 import { TableName } from "./types";
+
+const { WriterClient, JSONWriter } = managedwriter;
 
 require("dotenv").config();
 
@@ -92,62 +93,126 @@ export const savePipelineToTable = async (
   collection: string,
   table: BigqueryTable
 ): Promise<{ created: 0; modified: 0 }> => {
+  const startTime = Date.now();
+  const timeElapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
   const { BIGQUERY_DATASET } = env;
 
   const { db, client: mongoClient } = await mongoConnect();
   const bigqueryClient = new BigQuery();
 
-  // TODO: move to the end
+  const [tableMetaData] = await bigqueryClient
+    .dataset(BIGQUERY_DATASET)
+    .table(table.mergeTableName)
+    .getMetadata();
+
+  const { projectId, datasetId, tableId } =
+    tableMetaData.tableReference as Record<string, string>;
+
+  // if merge table has records, fail the job
+  // TODO: move to end
+  console.log("Truncating table...");
   await bigqueryClient
     .dataset(BIGQUERY_DATASET)
     .table(table.mergeTableName)
-    .query(`TRUNCATE TABLE ${BIGQUERY_DATASET}.${table.mergeTableName}`);
-
-  // if merge table has records, fail the job
+    .query(`TRUNCATE TABLE ${BIGQUERY_DATASET}.${table.mergeTableName}`)
+    .catch((e) => {
+      console.warn("Failed to truncate table", e);
+    });
+  console.log(timeElapsed(), "Done");
 
   const cursor = db
     .collection(collection)
     .aggregate(pipeline, { readPreference: "secondaryPreferred" });
 
-  let insertDocsBatch: Document[] = [];
-  const insertChunkSize = 5;
-  let totalRows = 0;
-  const batchPromises: Promise<InsertRowsResponse>[] = [];
-  const queueInsertBatch = async () => {
-    if (insertDocsBatch.length === 0) {
-      return;
+  const destinationTable = `projects/${projectId}/datasets/${datasetId}/tables/${tableId}`;
+  const streamType = managedwriter.PendingStream;
+  const writeClient = new WriterClient({ projectId });
+
+  try {
+    const writeStream = await writeClient.createWriteStreamFullResponse({
+      streamType,
+      destinationTable,
+    });
+    if (!writeStream.name || !writeStream.tableSchema) {
+      throw new Error("Stream ID invalid");
     }
-    batchPromises.push(
-      bigqueryClient
-        .dataset(BIGQUERY_DATASET)
-        .table(table.mergeTableName)
-        .insert(insertDocsBatch)
+    console.log(`Stream created: ${writeStream.name}`);
+
+    const protoDescriptor = adapt.convertStorageSchemaToProto2Descriptor(
+      writeStream.tableSchema,
+      "root"
     );
-    insertDocsBatch = [];
-  };
-  for await (const row of cursor) {
-    totalRows += 1;
-    insertDocsBatch.push(row);
-    if (insertDocsBatch.length >= insertChunkSize) {
-      queueInsertBatch();
+
+    // console.log("Proto descriptor: ", protoDescriptor);
+
+    const connection = await writeClient.createStreamConnection({
+      streamId: writeStream.name,
+    });
+
+    // console.log("Connection created: ", connection);
+
+    const writer = new JSONWriter({
+      connection,
+      protoDescriptor,
+    });
+
+    // console.log("Writer created: ", writer);
+
+    const writePromises: ReturnType<PendingWrite["getResult"]>[] = [];
+
+    let totalRows = 0;
+    let appendRowBatch: JSONObject[] = [];
+    let pwOffset = 0;
+
+    const loggingInterval = setInterval(() => {
+      console.log({
+        timeElapsed: timeElapsed(),
+        rowsIterated: totalRows,
+        appendRowBatch: appendRowBatch.length,
+        pwOffset,
+        writePromisesTotal: writePromises.length,
+      });
+    }, 3000);
+
+    for await (const row of cursor) {
+      totalRows += 1;
+      appendRowBatch.push(row);
+      if (appendRowBatch.length >= 1000) {
+        const pw = writer.appendRows(appendRowBatch, pwOffset);
+        pwOffset += appendRowBatch.length;
+        writePromises.push(pw.getResult());
+        appendRowBatch = [];
+      }
     }
+    if (appendRowBatch.length) {
+      const pw = writer.appendRows(appendRowBatch, pwOffset);
+      writePromises.push(pw.getResult());
+    }
+
+    console.log(timeElapsed(), `Rows pushed: ${totalRows}`);
+
+    await Promise.all(writePromises);
+
+    clearInterval(loggingInterval);
+
+    const rowCount = (await connection.finalize())?.rowCount;
+    console.log(timeElapsed(), `Connection row count: ${rowCount}`);
+
+    const response = await writeClient.batchCommitWriteStream({
+      parent: destinationTable,
+      writeStreams: [writeStream.name],
+    });
+
+    console.log(timeElapsed(), response);
+  } catch (err) {
+    console.log(err);
+  } finally {
+    writeClient.close();
   }
-  queueInsertBatch();
-  console.log("total rows", totalRows);
-  await Promise.all(batchPromises);
 
   // Finished inserting rows, can close cursor and mongo client
   await cursor.close();
   await mongoClient.close();
-
-  // const rows = await cursor.toArray();
-  // console.log(`Found ${rows.length} records`);
-
-  // insert batches of records into tmpMergeTable
-  /*
-  INSERT ${BIGQUERY_DATASET}.${table.mergeTableName} (...columns)
-  VALUES (...row1), (...row2), ..., (...rowN)
-  */
 
   // console.log('writing to bigquery...', BIGQUERY_DATASET, table.mergeTableName, rows.length);
   // const tmpInsertResult = await bigqueryClient
