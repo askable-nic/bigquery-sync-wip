@@ -6,19 +6,13 @@ import { StreamConnection } from "@google-cloud/bigquery-storage/build/src/manag
 import { WriteStream } from "@google-cloud/bigquery-storage/build/src/managedwriter/stream_types";
 import { Document } from "mongodb";
 
-import { env, mongoConnect } from "../util";
+import { env, mergeTableName, mongoConnect } from "../util";
 import { TableName } from "../types";
-
-export type BigqueryTableSyncOptions = {
-  name: TableName;
-  idField: string;
-};
 
 class BqDataSync {
   startTime: number = 0;
 
   tableName: string;
-  idField: string;
   mergeTableName: string;
 
   _metadata?: {
@@ -40,13 +34,12 @@ class BqDataSync {
   ready = false;
   loggerInterval: NodeJS.Timeout | null = null;
 
-  constructor(table: BigqueryTableSyncOptions) {
+  constructor(tableName: TableName) {
     this.startTime = Date.now();
 
-    (this.tableName = table.name),
-      (this.idField = table.idField),
-      (this.mergeTableName = `${table.name}_tmp_merge`),
-      (this.client = new BigQuery());
+    this.tableName = tableName;
+    this.mergeTableName = mergeTableName(tableName);
+    this.client = new BigQuery();
   }
 
   async init() {
@@ -209,18 +202,12 @@ class BqDataSync {
     }
     return this._metadata.tableId;
   }
-  get fields() {
-    if (!this._metadata?.fields) {
-      throw new Error("fields is not set");
-    }
-    return this._metadata.fields;
-  }
 }
 
 export const syncPipelineToMergeTable = async (
   pipeline: Document[],
   collection: string,
-  table: BigqueryTableSyncOptions
+  table: TableName
 ): Promise<{ created: 0; modified: 0 }> => {
   const dataSync = new BqDataSync(table);
 

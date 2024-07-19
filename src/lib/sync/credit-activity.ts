@@ -233,8 +233,5 @@ export const syncCreditActivity = async () => {
     },
   ];
 
-  return syncPipelineToMergeTable(pipeline, "credit_activity", {
-    name: "credit_activity",
-    idField: "ID",
-  });
+  return syncPipelineToMergeTable(pipeline, "credit_activity", "credit_activity");
 };

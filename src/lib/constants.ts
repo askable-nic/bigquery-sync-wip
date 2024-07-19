@@ -1,3 +1,5 @@
+import { TableName } from "./types";
+
 export const creditTypeMap = [
   [0, "Manual adjustment"],
   [1, "Credit usage"],
@@ -38,3 +40,9 @@ export const transactionStatusMap = [
   [2, "Pending payment"],
   [3, "Cancelled"],
 ];
+
+export const idFieldName: Record<TableName, string> = {
+  credit_activity: "ID",
+  transactions: "ID",
+  exchange_rate_data: "Date_Key",
+};

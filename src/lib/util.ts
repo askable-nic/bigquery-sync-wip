@@ -55,3 +55,5 @@ export const mongoConnect = async (dbName: string = "askable") => {
     db: await client.db(dbName),
   };
 };
+
+export const mergeTableName = (table: TableName) => `${table}_tmp_merge`;
