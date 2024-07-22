@@ -45,4 +45,5 @@ export const idFieldName: Record<TableName, string> = {
   credit_activity: "ID",
   transactions: "ID",
   exchange_rate_data: "Date_Key",
+  booking_submissions: "ID",
 };

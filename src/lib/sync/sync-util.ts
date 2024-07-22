@@ -71,7 +71,12 @@ class BqDataSync {
       fields: (tableMetaData?.schema?.fields ?? []) as TableField[],
     };
 
-    // TODO: fail if merge table has rows (update in progress)
+    const existingMergeTableRows = await this.countRows(this.mergeTableName);
+    if (existingMergeTableRows && existingMergeTableRows > 0) {
+      throw new Error(
+        `Merge table ${this.mergeTableName} is not empty (${existingMergeTableRows} rows)`
+      );
+    }
 
     this.destinationTable = `projects/${this.projectId}/datasets/${this.datasetId}/tables/${this.tableId}`;
     const streamType = managedwriter.PendingStream;
@@ -189,7 +194,7 @@ class BqDataSync {
     return [
       `MERGE \`${this.datasetId}.${this.tableName}\` T`,
       // `USING \`${BIGQUERY_DATASET}.${mergeTableName(table)}\` S`,
-      `USING (SELECT * FROM \`${this.datasetId}.${this.mergeTableName}\` QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY Updated DESC) = 1) S`,
+      `USING (SELECT * FROM \`${this.datasetId}.${this.mergeTableName}\` QUALIFY ROW_NUMBER() OVER (PARTITION BY ID) = 1) S`,
       `ON T.\`${this.idField}\` = S.\`${this.idField}\``,
       // Exists in both tables
       `WHEN MATCHED THEN`,
@@ -245,7 +250,7 @@ class BqDataSync {
   }
 
   async deleteTmpData() {
-    if (!this.ready) {
+    if (!this.datasetId) {
       throw new Error("Not initialized");
     }
 
@@ -256,20 +261,26 @@ class BqDataSync {
     );
   }
 
-  async countRows() {
+  async countRows(table: string) {
+    if (!this.datasetId) {
+      throw new Error("Not initialized");
+    }
+
+    const result = await this.client.query(
+      `SELECT COUNT(*) as count FROM ${this.datasetId!}.${table}`
+    );
+    return result?.[0]?.[0]?.count as number | undefined;
+  }
+
+  async countAllTableRows() {
     const [mergeTable, mainTable] = await Promise.all([
-      this.client.query(
-        `SELECT COUNT(*) as count FROM ${this.datasetId!}.${this
-          .mergeTableName!}`
-      ),
-      this.client.query(
-        `SELECT COUNT(*) as count FROM ${this.datasetId!}.${this.tableName!}`
-      ),
-    ]).then((res) => res.map((r) => r[0][0] as { count: any }));
+      this.countRows(this.mergeTableName),
+      this.countRows(this.tableName),
+    ]);
 
     return {
-      [this.mergeTableName]: mergeTable?.count,
-      [this.tableName]: mainTable?.count,
+      [this.mergeTableName]: mergeTable,
+      [this.tableName]: mainTable,
     };
   }
 
@@ -329,7 +340,7 @@ export const syncPipelineToMergeTable = async (
   try {
     await dataSync.init();
 
-    console.log(dataSync.timeElapsed, await dataSync.countRows()); 
+    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
 
     let totalRows = 0;
     let appendRowBatch: JSONObject[] = [];
@@ -358,24 +369,23 @@ export const syncPipelineToMergeTable = async (
 
     await dataSync.commitWrites();
 
-    console.log(dataSync.timeElapsed, await dataSync.countRows());
+    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
 
     await dataSync.mergeTmpTable();
 
-    console.log(dataSync.timeElapsed, await dataSync.countRows());
-
-    await dataSync.deleteTmpData();
-
-    console.log(dataSync.timeElapsed, await dataSync.countRows());
+    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
 
     return true;
   } catch (e) {
     throw e;
   } finally {
     dataSync.stopLogging();
-    await cursor.close();
-    await mongoClient.close();
-    await dataSync.closeStream();
+    await Promise.all([
+      cursor.close(),
+      mongoClient.close(),
+      dataSync.closeStream(),
+      dataSync.deleteTmpData().then(() => dataSync.countAllTableRows()),
+    ]);
   }
 
   return false;
