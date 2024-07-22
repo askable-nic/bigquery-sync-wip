@@ -8,12 +8,14 @@ import { Document } from "mongodb";
 
 import { env, mergeTableName, mongoConnect } from "../util";
 import { TableName } from "../types";
+import { idFieldName } from "../constants";
 
 class BqDataSync {
   startTime: number = 0;
 
   tableName: string;
   mergeTableName: string;
+  idField: string;
 
   _metadata?: {
     projectId: string;
@@ -36,9 +38,12 @@ class BqDataSync {
 
   constructor(tableName: TableName) {
     this.startTime = Date.now();
-
     this.tableName = tableName;
     this.mergeTableName = mergeTableName(tableName);
+    this.idField = idFieldName[tableName];
+    if (!this.idField) {
+      throw new Error(`Missing/Invalid ID field for table ${tableName}`);
+    }
     this.client = new BigQuery();
   }
 
@@ -169,13 +174,81 @@ class BqDataSync {
     console.log(this.timeElapsed, "Done");
   }
 
+  get mergeStatement() {
+    if (!this.datasetId) {
+      throw new Error("Metadata not set");
+    }
+    return [
+      `MERGE \`${this.datasetId}.${this.tableName}\` T`,
+      // `USING \`${BIGQUERY_DATASET}.${mergeTableName(table)}\` S`,
+      `USING (SELECT * FROM \`${this.datasetId}.${this.mergeTableName}\` QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY Updated DESC) = 1) S`,
+      `ON T.\`${this.idField}\` = S.\`${this.idField}\``,
+      // Exists in both tables
+      `WHEN MATCHED THEN`,
+      `UPDATE SET `,
+      this.fields
+        .map((field) => `T.\`${field.name}\` = S.\`${field.name}\``)
+        .join(", "),
+      // Exists in source but not target
+      `WHEN NOT MATCHED BY TARGET THEN`,
+      `INSERT (${this.fields.map((field) => `\`${field.name}\``).join(", ")})`,
+      `VALUES (${this.fields
+        .map((field) => `S.\`${field.name}\``)
+        .join(", ")})`,
+      // Exists in target but not source
+      `WHEN NOT MATCHED BY SOURCE THEN DELETE`,
+    ].join(" ");
+  }
+
   async mergeTmpTable() {
-    // TODO: make sure the buffer is clear:
+    if (!this.ready) {
+      throw new Error("Not initialized");
+    }
+
+    console.log(this.timeElapsed, "Merging tmp table...");
+
+    await this.client.query(this.mergeStatement);
+
+    return true;
+
+    // if (dmlStats) {
+    //   return {
+    //     inserted: dmlStats?.insertedRowCount
+    //       ? Number(dmlStats?.insertedRowCount)
+    //       : undefined,
+    //     deleted: dmlStats?.deletedRowCount
+    //       ? Number(dmlStats?.deletedRowCount)
+    //       : undefined,
+    //     updated: dmlStats?.updatedRowCount
+    //       ? Number(dmlStats?.updatedRowCount)
+    //       : undefined,
+    //   };
+    // } else {
+    //   console.log(this.timeElapsed, "Merge resolved without stats");
+    //   console.log(queryResponse);
+    // }
+
+    // if (queryResponse?.dmlStats) {
+    //   console.log(this.timeElapsed, "Merge complete");
+    // }
+
+    // TODO: ~make sure the buffer is clear~
     /* (TRUNCATE DML statement over table operations_data_warehouse_test.credit_activity_tmp_merge would affect rows in the streaming buffer, which is not supported) */
   }
 
-  async cleanup() {
-    this.stopLogging();
+  async deleteTmpData() {
+    if (!this.ready) {
+      throw new Error("Not initialized");
+    }
+
+    console.log(this.timeElapsed, "Deleting tmp data...");
+
+    await this.client.query(
+      `DELETE FROM ${this.datasetId}.${this.mergeTableName} WHERE TRUE`
+    );
+  }
+
+  async closeStream() {
     if (this.writeClient) {
       this.writeClient.close();
     }
@@ -202,13 +275,25 @@ class BqDataSync {
     }
     return this._metadata.tableId;
   }
+  get fields() {
+    if (!this._metadata?.fields) {
+      throw new Error("fields is not set");
+    }
+    return this._metadata.fields;
+  }
 }
+
+type SyncResult =
+  | {
+      merge?: { inserted?: number; deleted?: number; updated?: number };
+    }
+  | boolean;
 
 export const syncPipelineToMergeTable = async (
   pipeline: Document[],
   collection: string,
   table: TableName
-): Promise<{ created: 0; modified: 0 }> => {
+): Promise<SyncResult> => {
   const dataSync = new BqDataSync(table);
 
   const { db, client: mongoClient } = await mongoConnect();
@@ -222,7 +307,7 @@ export const syncPipelineToMergeTable = async (
     let totalRows = 0;
     let appendRowBatch: JSONObject[] = [];
 
-    dataSync.startLogging(500, () => ({
+    dataSync.startLogging(2000, () => ({
       totalRows,
       appendRowBatch: appendRowBatch.length,
     }));
@@ -241,12 +326,57 @@ export const syncPipelineToMergeTable = async (
 
     await dataSync.commitWrites();
 
-    dataSync.stopLogging();
+    console.log(
+      dataSync.timeElapsed,
+      "Merge table count",
+      (await dataSync.client.query(
+        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.mergeTableName!}`
+      ))?.[0]
+    );
+
+    await dataSync.mergeTmpTable();
+
+    console.log(
+      dataSync.timeElapsed,
+      "Merge table count",
+      (await dataSync.client.query(
+        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.mergeTableName!}`
+      ))?.[0]
+    );
+    console.log(
+      dataSync.timeElapsed,
+      "Main table count",
+      (await dataSync.client.query(
+        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.tableName!}`
+      ))?.[0]
+    );
+
+    await dataSync.deleteTmpData();
+
+    console.log(
+      dataSync.timeElapsed,
+      "Merge table count",
+      (await dataSync.client.query(
+        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.mergeTableName!}`
+      ))?.[0]
+    );
+    console.log(
+      dataSync.timeElapsed,
+      "Main table count",
+      (await dataSync.client.query(
+        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.tableName!}`
+      ))?.[0]
+    );
+
+    return true;
+  } catch (e) {
+    throw e;
   } finally {
-    await dataSync.cleanup();
+    dataSync.stopLogging();
     await cursor.close();
     await mongoClient.close();
+    await dataSync.closeStream();
   }
 
-  return { created: 0, modified: 0 }; // return number
+  return false;
 };

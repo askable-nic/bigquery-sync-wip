@@ -32,7 +32,7 @@ export const syncCreditActivity = async () => {
     { $match: { "booking.config.demo": { $ne: true } } },
 
     // LIMIT FOR TESTING
-    { $limit: 990 },
+    // { $limit: 299 },
 
     {
       $lookup: {

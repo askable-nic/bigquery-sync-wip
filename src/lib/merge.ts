@@ -1,7 +1,7 @@
 import { BigQuery, TableField } from "@google-cloud/bigquery";
 
 import { TableName } from "./types";
-import { env, mergeTableName } from "./util";
+import { bqTableMeta, env, mergeTableName } from "./util";
 import { idFieldName } from "./constants";
 
 // const mergeQuery = [
@@ -25,46 +25,23 @@ import { idFieldName } from "./constants";
 
 // truncate tmpMergeTable
 
-type TableMetadata = {
-  tableReference: { projectId?: string; datasetId?: string; tableId?: string };
-  streamingBuffer?: {
-    estimatedRows: string;
-    estimatedBytes: string;
-    oldestEntryTime: string;
-  };
-  schema?: { fields?: TableField[] };
-};
-
-const fetchMetadata = async (
-  client: BigQuery,
-  table: TableName | string
-): Promise<TableMetadata> => {
-  const { BIGQUERY_DATASET } = env;
-  const response = await client
-    .dataset(BIGQUERY_DATASET)
-    .table(table)
-    .getMetadata();
-
-  return response[0] as TableMetadata;
-};
-
 export const mergeTableData = async (table: TableName) => {
   const { BIGQUERY_DATASET } = env;
   const client = new BigQuery();
 
   const [mainTableMetaData, tmpTableMetaData] = await Promise.all([
-    fetchMetadata(client, table),
-    fetchMetadata(client, mergeTableName(table)),
+    bqTableMeta(client, table),
+    bqTableMeta(client, mergeTableName(table)),
   ]);
 
   if (
     !(
       tmpTableMetaData.tableReference?.datasetId &&
       tmpTableMetaData.tableReference?.tableId &&
-      tmpTableMetaData.streamingBuffer &&
       tmpTableMetaData.schema?.fields
     )
   ) {
+    console.error(tmpTableMetaData);
     throw new Error(`Table metadata for ${mergeTableName(table)} not found`);
   }
 
@@ -77,19 +54,22 @@ export const mergeTableData = async (table: TableName) => {
     throw new Error(`Missing/Invalid ID field for table ${table}`);
   }
 
+  // TODO: Sync_Time col
+
   const mergeStatement = [
-    `MERGE ${BIGQUERY_DATASET}.${table} T`,
+    `MERGE \`${BIGQUERY_DATASET}.${table}\` T`,
     // SELECT DISTINCT BY ${ID}
-    `USING ${BIGQUERY_DATASET}.${mergeTableName} S`,
-    `ON T.${idField} = S.${idField}`,
+    // `USING \`${BIGQUERY_DATASET}.${mergeTableName(table)}\` S`,
+    `USING (SELECT * FROM \`${BIGQUERY_DATASET}.${mergeTableName(table)}\` QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY Updated DESC) = 1) S`,
+    `ON T.\`${idField}\` = S.\`${idField}\``,
     // Exists in both tables
     `WHEN MATCHED THEN`,
     `UPDATE SET `,
-    fieldNames.map((field) => `T.${field} = S.${field}`).join(", "),
+    fieldNames.map((field) => `T.\`${field}\` = S.\`${field}\``).join(", "),
     // Exists in source but not target
     `WHEN NOT MATCHED BY TARGET THEN`,
-    `INSERT (${fieldNames.join(", ")})`,
-    `VALUES (${fieldNames.map((field) => `S.${field}`).join(", ")})`,
+    `INSERT (${fieldNames.map((field) => `\`${field}\``).join(", ")})`,
+    `VALUES (${fieldNames.map((field) => `S.\`${field}\``).join(", ")})`,
     // Exists in target but not source
     `WHEN NOT MATCHED BY SOURCE THEN DELETE`,
   ].join(" ");

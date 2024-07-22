@@ -1,6 +1,7 @@
 import { MongoClient, ServerApiVersion } from "mongodb";
 
 import { TableName } from "./types";
+import { BigQuery, TableField } from "@google-cloud/bigquery";
 
 require("dotenv").config();
 
@@ -57,3 +58,26 @@ export const mongoConnect = async (dbName: string = "askable") => {
 };
 
 export const mergeTableName = (table: TableName) => `${table}_tmp_merge`;
+
+type TableMetadata = {
+  tableReference: { projectId?: string; datasetId?: string; tableId?: string };
+  streamingBuffer?: {
+    estimatedRows: string;
+    estimatedBytes: string;
+    oldestEntryTime: string;
+  };
+  schema?: { fields?: TableField[] };
+};
+
+export const bqTableMeta = async (
+  client: BigQuery,
+  table: TableName | string
+): Promise<TableMetadata> => {
+  const { BIGQUERY_DATASET } = env;
+  const response = await client
+    .dataset(BIGQUERY_DATASET)
+    .table(table)
+    .getMetadata();
+
+  return response[0] as TableMetadata;
+};
