@@ -10,7 +10,6 @@ import { env, mergeTableName, mongoConnect } from "../util";
 import { TableName } from "../types";
 import { idFieldName } from "../constants";
 
-
 type BqDataSyncOptions = {
   batchSize?: number;
 };
@@ -257,6 +256,23 @@ class BqDataSync {
     );
   }
 
+  async countRows() {
+    const [mergeTable, mainTable] = await Promise.all([
+      this.client.query(
+        `SELECT COUNT(*) as count FROM ${this.datasetId!}.${this
+          .mergeTableName!}`
+      ),
+      this.client.query(
+        `SELECT COUNT(*) as count FROM ${this.datasetId!}.${this.tableName!}`
+      ),
+    ]).then((res) => res.map((r) => r[0][0] as { count: any }));
+
+    return {
+      [this.mergeTableName]: mergeTable?.count,
+      [this.tableName]: mainTable?.count,
+    };
+  }
+
   async closeStream() {
     if (this.writeClient) {
       this.writeClient.close();
@@ -313,6 +329,8 @@ export const syncPipelineToMergeTable = async (
   try {
     await dataSync.init();
 
+    console.log(dataSync.timeElapsed, await dataSync.countRows()); 
+
     let totalRows = 0;
     let appendRowBatch: JSONObject[] = [];
 
@@ -340,47 +358,15 @@ export const syncPipelineToMergeTable = async (
 
     await dataSync.commitWrites();
 
-    console.log(
-      dataSync.timeElapsed,
-      "Merge table count",
-      (await dataSync.client.query(
-        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.mergeTableName!}`
-      ))?.[0]
-    );
+    console.log(dataSync.timeElapsed, await dataSync.countRows());
 
     await dataSync.mergeTmpTable();
 
-    console.log(
-      dataSync.timeElapsed,
-      "Merge table count",
-      (await dataSync.client.query(
-        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.mergeTableName!}`
-      ))?.[0]
-    );
-    console.log(
-      dataSync.timeElapsed,
-      "Main table count",
-      (await dataSync.client.query(
-        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.tableName!}`
-      ))?.[0]
-    );
+    console.log(dataSync.timeElapsed, await dataSync.countRows());
 
     await dataSync.deleteTmpData();
 
-    console.log(
-      dataSync.timeElapsed,
-      "Merge table count",
-      (await dataSync.client.query(
-        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.mergeTableName!}`
-      ))?.[0]
-    );
-    console.log(
-      dataSync.timeElapsed,
-      "Main table count",
-      (await dataSync.client.query(
-        `SELECT COUNT(*) as count FROM ${dataSync.datasetId!}.${dataSync.tableName!}`
-      ))?.[0]
-    );
+    console.log(dataSync.timeElapsed, await dataSync.countRows());
 
     return true;
   } catch (e) {
