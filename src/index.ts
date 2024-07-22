@@ -3,6 +3,7 @@ import { CloudEventFunction } from "@google-cloud/functions-framework";
 import { decodeEventData } from "./lib/util";
 import { mergeTableData } from "./lib/merge";
 import { syncCreditActivity } from "./lib/sync/credit-activity";
+import { syncTransactions } from "./lib/sync/transactions";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
   const { method, table } = decodeEventData(cloudEvent?.data);
@@ -30,6 +31,8 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
         switch (table) {
           case "credit_activity":
             return syncCreditActivity();
+          case "transactions":
+            return syncTransactions();
           default:
             throw new Error(`Table ${table} is not handled`);
         }
