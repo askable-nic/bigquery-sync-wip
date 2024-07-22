@@ -10,6 +10,11 @@ import { env, mergeTableName, mongoConnect } from "../util";
 import { TableName } from "../types";
 import { idFieldName } from "../constants";
 
+
+type BqDataSyncOptions = {
+  batchSize?: number;
+};
+
 class BqDataSync {
   startTime: number = 0;
 
@@ -33,10 +38,12 @@ class BqDataSync {
   writePromises: ReturnType<PendingWrite["getResult"]>[] = [];
   pwOffset = 0;
 
+  batchSize: number;
+
   ready = false;
   loggerInterval: NodeJS.Timeout | null = null;
 
-  constructor(tableName: TableName) {
+  constructor(tableName: TableName, options: BqDataSyncOptions = {}) {
     this.startTime = Date.now();
     this.tableName = tableName;
     this.mergeTableName = mergeTableName(tableName);
@@ -45,6 +52,8 @@ class BqDataSync {
       throw new Error(`Missing/Invalid ID field for table ${tableName}`);
     }
     this.client = new BigQuery();
+
+    this.batchSize = options.batchSize ?? 1000;
   }
 
   async init() {
@@ -294,7 +303,7 @@ export const syncPipelineToMergeTable = async (
   collection: string,
   table: TableName
 ): Promise<SyncResult> => {
-  const dataSync = new BqDataSync(table);
+  const dataSync = new BqDataSync(table, { batchSize: 2000 });
 
   const { db, client: mongoClient } = await mongoConnect();
   const cursor = db
@@ -307,19 +316,24 @@ export const syncPipelineToMergeTable = async (
     let totalRows = 0;
     let appendRowBatch: JSONObject[] = [];
 
-    dataSync.startLogging(2000, () => ({
+    dataSync.startLogging(5000, () => ({
       totalRows,
       appendRowBatch: appendRowBatch.length,
     }));
 
+    console.log(dataSync.timeElapsed, "Start paging the cursor...");
+
     for await (const row of cursor) {
       totalRows += 1;
       appendRowBatch.push(row);
-      if (appendRowBatch.length >= 1000) {
+      if (appendRowBatch.length >= dataSync.batchSize) {
         dataSync.writeBatch(appendRowBatch);
         appendRowBatch = [];
       }
     }
+
+    console.log(dataSync.timeElapsed, "Finished paging the cursor", totalRows);
+
     if (appendRowBatch.length) {
       dataSync.writeBatch(appendRowBatch);
     }
