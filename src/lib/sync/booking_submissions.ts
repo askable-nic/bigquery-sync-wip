@@ -4,11 +4,21 @@ import { syncFindToMergeTable, syncPipelineToMergeTable } from "./sync-util";
 export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncFindToMergeTable(
-    db
-      .collection("booking_submission")
-      .find({})
-      .sort({ _id: -1 })
-      .limit(300000),
+    db.collection("booking_submission").find(
+      {},
+      {
+        sort: { _id: -1 },
+        limit: 200000,
+        projection: {
+          _id: 1,
+          created: 1,
+          eligibility: 1,
+          _user_id: 1,
+          _booking_id: 1,
+          status: 1,
+        },
+      }
+    ),
     (doc) => ({
       ID: doc._id.toString(),
       Date: doc.created ? new Date(doc.created) : doc._id.getTimestamp(),
