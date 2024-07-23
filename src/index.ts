@@ -6,7 +6,8 @@ import { syncTransactions } from "./lib/sync/transactions";
 import { syncBookingSubmissions } from "./lib/sync/booking_submissions";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
-  const { method, table } = decodeEventData(cloudEvent?.data);
+  const { method, table } = decodeEventData(cloudEvent);
+  console.log({ method, table });
   if (!method) {
     console.error("No method found in event data");
     return;
