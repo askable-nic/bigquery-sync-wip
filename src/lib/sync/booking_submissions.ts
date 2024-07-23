@@ -1,16 +1,16 @@
 import { ObjectId } from "mongodb";
 import { mongoConnect } from "../util";
-import { syncFindToMergeTable, syncPipelineToMergeTable } from "./sync-util";
+import { syncToTable } from "./sync-util";
 
 export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();
 
-  const updatedSince = Date.now() - 1000 * 3600 * 24 * 7; // 1 weeks
+  const updatedSince = Date.now() - 1000 * 3600 * 24 * 7; // 1 week
 
   var i = new ObjectId();
   i.getTimestamp();
 
-  const syncResult = await syncFindToMergeTable(
+  const syncResult = await syncToTable(
     db.collection("booking_submission").find(
       {
         $or: [

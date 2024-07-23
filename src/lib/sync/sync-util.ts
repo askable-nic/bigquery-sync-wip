@@ -12,13 +12,14 @@ import { idFieldName } from "../constants";
 
 type BqDataSyncOptions = {
   batchSize?: number;
+  useTmpTable?: boolean;
 };
 
 class BqDataSync {
   startTime: number = 0;
 
   tableName: string;
-  mergeTableName: string;
+  writeStreamTableName: string;
   idField: string;
 
   _metadata?: {
@@ -38,21 +39,29 @@ class BqDataSync {
   pwOffset = 0;
 
   batchSize: number;
+  useTmpTable: boolean;
 
   ready = false;
   loggerInterval: NodeJS.Timeout | null = null;
 
+  uuidsSet = false;
+
   constructor(tableName: TableName, options: BqDataSyncOptions = {}) {
     this.startTime = Date.now();
-    this.tableName = tableName;
-    this.mergeTableName = mergeTableName(tableName);
+
+    this.batchSize = options.batchSize ?? 1000;
+    this.useTmpTable = options.useTmpTable ?? true;
+
+    this.tableName = tableName; // main table to end up with the data
+    this.writeStreamTableName = this.useTmpTable
+      ? mergeTableName(tableName)
+      : tableName; // table to stream data into, which may be a tmp table
+
     this.idField = idFieldName[tableName];
     if (!this.idField) {
       throw new Error(`Missing/Invalid ID field for table ${tableName}`);
     }
     this.client = new BigQuery();
-
-    this.batchSize = options.batchSize ?? 1000;
   }
 
   async init() {
@@ -61,7 +70,7 @@ class BqDataSync {
 
     const [tableMetaData] = await this.client
       .dataset(BIGQUERY_DATASET)
-      .table(this.mergeTableName)
+      .table(this.writeStreamTableName)
       .getMetadata();
 
     this._metadata = {
@@ -71,14 +80,18 @@ class BqDataSync {
       fields: (tableMetaData?.schema?.fields ?? []) as TableField[],
     };
 
-    const existingMergeTableRows = await this.countRows(this.mergeTableName);
-
-    console.log(this.timeElapsed, {existingMergeTableRows});
-
-    if (existingMergeTableRows && existingMergeTableRows > 0) {
-      throw new Error(
-        `Merge table ${this.mergeTableName} is not empty (${existingMergeTableRows} rows)`
+    if (this.useTmpTable) {
+      const existingMergeTableRows = await this.countRows(
+        this.writeStreamTableName
       );
+
+      console.log(this.timeElapsed, { existingMergeTableRows });
+
+      if (existingMergeTableRows && existingMergeTableRows > 0) {
+        throw new Error(
+          `Merge table ${this.writeStreamTableName} is not empty (${existingMergeTableRows} rows)`
+        );
+      }
     }
 
     this.destinationTable = `projects/${this.projectId}/datasets/${this.datasetId}/tables/${this.tableId}`;
@@ -174,7 +187,28 @@ class BqDataSync {
     });
 
     console.log(this.timeElapsed, "Write stream committed", commitResponse);
+
+    await this.setUuids();
+
     console.log(this.timeElapsed, await this.countAllTableRows());
+  }
+
+  async setUuids() {
+    if (!this.fields) {
+      throw new Error("Not initialized");
+    }
+    if (!this.fields.find((field) => field.name === "uuid")) {
+      return;
+    }
+    console.log(this.timeElapsed, "Setting UUIDs...");
+    const [, , result] = await this.client.query(
+      `UPDATE \`${this.datasetId}.${this.writeStreamTableName}\` SET \`uuid\` = GENERATE_UUID() WHERE \`uuid\` IS NULL;`
+    );
+    this.uuidsSet = true;
+    console.log(this.timeElapsed, "UUIDs set", {
+      numDmlAffectedRows: result?.numDmlAffectedRows,
+      dmlStats: (result as any)?.dmlStats,
+    });
   }
 
   // async truncateMergeTable() {
@@ -191,14 +225,17 @@ class BqDataSync {
   //   console.log(this.timeElapsed, "Done");
   // }
 
-  get mergeStatement() {
-    if (!this.datasetId) {
-      throw new Error("Metadata not set");
+  async mergeTmpTable() {
+    if (!this.ready) {
+      throw new Error("Not initialized");
     }
-    return [
+
+    console.log(this.timeElapsed, "Merging tmp table...");
+
+    const mergeStatement = [
       `MERGE \`${this.datasetId}.${this.tableName}\` T`,
       // `USING \`${BIGQUERY_DATASET}.${mergeTableName(table)}\` S`,
-      `USING (SELECT * FROM \`${this.datasetId}.${this.mergeTableName}\` QUALIFY ROW_NUMBER() OVER (PARTITION BY ID) = 1) S`,
+      `USING (SELECT * FROM \`${this.datasetId}.${this.writeStreamTableName}\` QUALIFY ROW_NUMBER() OVER (PARTITION BY ID) = 1) S`,
       `ON T.\`${this.idField}\` = S.\`${this.idField}\``,
       // Exists in both tables
       `WHEN MATCHED THEN`,
@@ -215,16 +252,8 @@ class BqDataSync {
       // Exists in target but not source
       `WHEN NOT MATCHED BY SOURCE THEN DELETE`,
     ].join(" ");
-  }
 
-  async mergeTmpTable() {
-    if (!this.ready) {
-      throw new Error("Not initialized");
-    }
-
-    console.log(this.timeElapsed, "Merging tmp table...");
-
-    await this.client.query(this.mergeStatement);
+    await this.client.query(mergeStatement);
 
     console.log(this.timeElapsed, "Merge complete");
     console.log(this.timeElapsed, await this.countAllTableRows());
@@ -257,6 +286,10 @@ class BqDataSync {
   }
 
   async deleteTmpData() {
+    if (!this.useTmpTable) {
+      return;
+    }
+
     if (!this.datasetId) {
       throw new Error("Not initialized");
     }
@@ -264,8 +297,35 @@ class BqDataSync {
     console.log(this.timeElapsed, "Deleting tmp data...");
 
     await this.client.query(
-      `DELETE FROM ${this.datasetId}.${this.mergeTableName} WHERE TRUE`
+      `DELETE FROM ${this.datasetId}.${this.writeStreamTableName} WHERE TRUE`
     );
+  }
+
+  async dedupeWriteTable() {
+    if (!this.uuidsSet) {
+      throw new Error("UUIDs have not been set");
+    }
+    if (!this.fields?.find((field) => field.name === "Updated")) {
+      throw new Error("Can only dedupe tables with `uuid` & `Updated` fields");
+    }
+    console.log(this.timeElapsed, "Deduping table...");
+    const queryStatement = [
+      `DELETE FROM \`${this.datasetId}.${this.writeStreamTableName}\``,
+      "WHERE `uuid` IN",
+      "(",
+      "SELECT `uuid`",
+      `FROM \`${this.datasetId}.${this.writeStreamTableName}\``,
+      `QUALIFY ROW_NUMBER() OVER (PARTITION BY \`${this.idField}\` ORDER BY \`Updated\` DESC) > 1`,
+      ")",
+    ].join(" ");
+    const [, , result] = await this.client.query(queryStatement);
+
+    console.log(this.timeElapsed, "Table deduped", {
+      numDmlAffectedRows: result?.numDmlAffectedRows,
+      dmlStats: (result as any)?.dmlStats,
+    });
+
+    console.log(this.timeElapsed, await this.countAllTableRows());
   }
 
   async countRows(table: string) {
@@ -280,15 +340,27 @@ class BqDataSync {
   }
 
   async countAllTableRows() {
-    const [mergeTable, mainTable] = await Promise.all([
-      this.countRows(this.mergeTableName),
-      this.countRows(this.tableName),
-    ]);
+    const tableNames = [this.tableName, this.writeStreamTableName].reduce(
+      (acc, cur) => {
+        if (acc.includes(cur)) {
+          return acc;
+        }
+        return [...acc, cur];
+      },
+      [] as string[]
+    );
 
-    return {
-      [this.mergeTableName]: mergeTable,
-      [this.tableName]: mainTable,
-    };
+    const counts = await Promise.all(
+      tableNames.map((table) =>
+        this.countRows(table).then(
+          (count) => [table, count] as [string, number | undefined]
+        )
+      )
+    );
+
+    return counts.reduce((acc, [table, count]) => {
+      return { ...acc, [table]: count };
+    }, {});
   }
 
   async closeStream() {
@@ -351,7 +423,7 @@ export const syncPipelineToMergeTable = async (
     let appendRowBatch: JSONObject[] = [];
 
     dataSync.startLogging(5000, () => ({
-      function: 'syncPipelineToMergeTable',
+      function: "syncPipelineToMergeTable",
       table,
       totalRows,
       appendRowBatch: appendRowBatch.length,
@@ -394,12 +466,11 @@ export const syncPipelineToMergeTable = async (
   return false;
 };
 
-export const syncFindToMergeTable = async (
+export const syncToMergeTable = async (
   cursor: FindCursor,
   transform: (document: Document) => JSONObject,
-  table: TableName,
+  table: TableName
 ): Promise<SyncResult> => {
-  
   const dataSync = new BqDataSync(table, { batchSize: 2000 });
   try {
     await dataSync.init();
@@ -410,7 +481,7 @@ export const syncFindToMergeTable = async (
     let appendRowBatch: JSONObject[] = [];
 
     dataSync.startLogging(5000, () => ({
-      function: 'syncFindToMergeTable',
+      function: "syncFindToMergeTable",
       table,
       totalRows,
       appendRowBatch: appendRowBatch.length,
@@ -449,4 +520,62 @@ export const syncFindToMergeTable = async (
   }
 
   return false;
-}
+};
+
+export const syncToTable = async (
+  cursor: FindCursor,
+  transform: (document: Document) => JSONObject,
+  table: TableName
+): Promise<SyncResult> => {
+  const dataSync = new BqDataSync(table, {
+    batchSize: 2000,
+    useTmpTable: false,
+  });
+  try {
+    await dataSync.init();
+
+    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
+
+    let totalRows = 0;
+    let appendRowBatch: JSONObject[] = [];
+
+    dataSync.startLogging(5000, () => ({
+      function: "syncFindToTable",
+      table,
+      totalRows,
+      appendRowBatch: appendRowBatch.length,
+    }));
+
+    console.log(dataSync.timeElapsed, "Start paging the cursor...");
+
+    for await (const document of cursor) {
+      totalRows += 1;
+      appendRowBatch.push(transform(document));
+      if (appendRowBatch.length >= dataSync.batchSize) {
+        dataSync.writeBatch(appendRowBatch);
+        appendRowBatch = [];
+      }
+    }
+
+    console.log(dataSync.timeElapsed, "Finished paging the cursor", totalRows);
+
+    if (appendRowBatch.length) {
+      dataSync.writeBatch(appendRowBatch);
+    }
+
+    await dataSync.commitWrites();
+
+    await dataSync.dedupeWriteTable().catch((e) => {
+      console.warn("Failed to dedupe table", e);
+    });
+
+    return true;
+  } catch (e) {
+    throw e;
+  } finally {
+    dataSync.stopLogging();
+    await Promise.all([cursor.close(), dataSync.closeStream()]);
+  }
+
+  return false;
+};
