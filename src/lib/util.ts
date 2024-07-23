@@ -9,6 +9,7 @@ require("dotenv").config();
 type EventDataSchema = {
   table?: TableName;
   method?: "sync";
+  options?: Record<string, unknown>;
 };
 
 export const decodeEventData = (

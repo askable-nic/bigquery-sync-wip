@@ -1,14 +1,13 @@
 import { CloudEventFunction } from "@google-cloud/functions-framework";
 
 import { decodeEventData } from "./lib/util";
-// import { syncCreditActivity } from "./lib/sync/credit-activity";
-import { syncCreditActivity } from "./lib/sync/credit-activity-find";
+import { syncCreditActivity as syncCreditActivityAggregate } from "./lib/sync/credit-activity-aggregate";
+import { syncCreditActivity as syncCreditActivityFind } from "./lib/sync/credit-activity-find";
 import { syncTransactions } from "./lib/sync/transactions";
 import { syncBookingSubmissions } from "./lib/sync/booking_submissions";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
-  const { method, table } = decodeEventData(cloudEvent);
-  console.log({ method, table });
+  const { method, table, options } = decodeEventData(cloudEvent);
   if (!method) {
     console.error("No method found in event data");
     return;
@@ -22,7 +21,11 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
       const result = await (async () => {
         switch (table) {
           case "credit_activity":
-            return syncCreditActivity();
+            if (options?.queryOp === "aggregate") {
+              return syncCreditActivityAggregate();
+            } else {
+              return syncCreditActivityFind();
+            }
           case "transactions":
             return syncTransactions();
           case "booking_submissions":

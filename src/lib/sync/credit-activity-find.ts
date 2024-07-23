@@ -5,7 +5,31 @@ import { creditTypeMap, refundTypeMap } from "../constants";
 export const syncCreditActivity = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncFindToMergeTable(
-    db.collection("credit_activity").find({ type: { $in: creditTypeMap.map(([k]) => k).flat() } }).sort({ _id: -1 }),
+    db.collection("credit_activity").find(
+      { type: { $in: creditTypeMap.map(([k]) => k).flat() } },
+      {
+        // sort: { _id: -1 },
+        projection: {
+          _admin_user_id: 1,
+          _booking_id: 1,
+          _from_team_id: 1,
+          _id: 1,
+          _legacy_id: 1,
+          _project_id: 1,
+          _team_id: 1,
+          _to_team_id: 1,
+          _transaction_id: 1,
+          _user_id: 1,
+          accounting_type: 1,
+          amount: 1,
+          comment : 1,
+          created: 1,
+          refund_type: 1,
+          type: 1,
+          updated: 1,
+        }
+      }
+    ),
     (doc) => {
       const createdDate = doc.created ? new Date(doc.created) : doc._id.getTimestamp();
       const creditAmount = (() => {
