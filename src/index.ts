@@ -1,7 +1,8 @@
 import { CloudEventFunction } from "@google-cloud/functions-framework";
 
 import { decodeEventData } from "./lib/util";
-import { syncCreditActivity } from "./lib/sync/credit-activity";
+// import { syncCreditActivity } from "./lib/sync/credit-activity";
+import { syncCreditActivity } from "./lib/sync/credit-activity-find";
 import { syncTransactions } from "./lib/sync/transactions";
 import { syncBookingSubmissions } from "./lib/sync/booking_submissions";
 

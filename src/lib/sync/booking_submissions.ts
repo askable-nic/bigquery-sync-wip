@@ -1,19 +1,26 @@
-import { syncPipelineToMergeTable } from "./sync-util";
+import { mongoConnect } from "../util";
+import { syncFindToMergeTable, syncPipelineToMergeTable } from "./sync-util";
 
 export const syncBookingSubmissions = async () => {
-  const pipeline = [
-    { $sort: { _id: -1 } },
-    {
-      $project: {
-        _id: false,
-        ID: { $toString: "$_id" },
-        Date: { $toDate: { $ifNull: ["$created", "$_id"] } },
-        Eligibility: "$eligibility",
-        User_ID: { $toString: "$_user_id" },
-        Study_ID: { $toString: "$_booking_id" },
-        Status: "$status",
-      } }
-  ];
+  const { db, client: mongoClient } = await mongoConnect();
+  const syncResult = await syncFindToMergeTable(
+    db
+      .collection("booking_submission")
+      .find({})
+      .sort({ _id: -1 })
+      .limit(300000),
+    (doc) => ({
+      ID: doc._id.toString(),
+      Date: doc.created ? new Date(doc.created) : doc._id.getTimestamp(),
+      Eligibility: doc.eligibility ?? null,
+      User_ID: doc._user_id ? doc._user_id.toString() : null,
+      Study_ID: doc._booking_id ? doc._booking_id.toString() : null,
+      Status: doc.status ?? null,
+    }),
+    "booking_submissions"
+  );
 
-  return syncPipelineToMergeTable(pipeline, "booking_submission", "booking_submissions");
+  await mongoClient.close();
+
+  return syncResult;
 };

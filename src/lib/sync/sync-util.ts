@@ -4,7 +4,7 @@ import { JSONObject } from "@google-cloud/bigquery-storage/build/src/managedwrit
 import { PendingWrite } from "@google-cloud/bigquery-storage/build/src/managedwriter/pending_write";
 import { StreamConnection } from "@google-cloud/bigquery-storage/build/src/managedwriter/stream_connection";
 import { WriteStream } from "@google-cloud/bigquery-storage/build/src/managedwriter/stream_types";
-import { Document } from "mongodb";
+import { Document, FindCursor } from "mongodb";
 
 import { env, mergeTableName, mongoConnect } from "../util";
 import { TableName } from "../types";
@@ -72,6 +72,9 @@ class BqDataSync {
     };
 
     const existingMergeTableRows = await this.countRows(this.mergeTableName);
+
+    console.log(this.timeElapsed, {existingMergeTableRows});
+
     if (existingMergeTableRows && existingMergeTableRows > 0) {
       throw new Error(
         `Merge table ${this.mergeTableName} is not empty (${existingMergeTableRows} rows)`
@@ -171,21 +174,22 @@ class BqDataSync {
     });
 
     console.log(this.timeElapsed, "Write stream committed", commitResponse);
+    console.log(this.timeElapsed, await this.countAllTableRows());
   }
 
-  async truncateMergeTable() {
-    // TODO: make sure the buffer is clear:
-    /* (TRUNCATE DML statement over table operations_data_warehouse_test.credit_activity_tmp_merge would affect rows in the streaming buffer, which is not supported) */
-    console.log(this.timeElapsed, "Truncating table...");
-    await this.client
-      .dataset(this.datasetId)
-      .table(this.mergeTableName)
-      .query(`TRUNCATE TABLE ${this.datasetId}.${this.mergeTableName}`)
-      .catch((e) => {
-        console.warn("Failed to truncate table", e);
-      });
-    console.log(this.timeElapsed, "Done");
-  }
+  // async truncateMergeTable() {
+  //   // TODO: make sure the buffer is clear:
+  //   /* (TRUNCATE DML statement over table operations_data_warehouse_test.credit_activity_tmp_merge would affect rows in the streaming buffer, which is not supported) */
+  //   console.log(this.timeElapsed, "Truncating table...");
+  //   await this.client
+  //     .dataset(this.datasetId)
+  //     .table(this.mergeTableName)
+  //     .query(`TRUNCATE TABLE ${this.datasetId}.${this.mergeTableName}`)
+  //     .catch((e) => {
+  //       console.warn("Failed to truncate table", e);
+  //     });
+  //   console.log(this.timeElapsed, "Done");
+  // }
 
   get mergeStatement() {
     if (!this.datasetId) {
@@ -221,6 +225,9 @@ class BqDataSync {
     console.log(this.timeElapsed, "Merging tmp table...");
 
     await this.client.query(this.mergeStatement);
+
+    console.log(this.timeElapsed, "Merge complete");
+    console.log(this.timeElapsed, await this.countAllTableRows());
 
     return true;
 
@@ -340,21 +347,21 @@ export const syncPipelineToMergeTable = async (
   try {
     await dataSync.init();
 
-    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
-
     let totalRows = 0;
     let appendRowBatch: JSONObject[] = [];
 
     dataSync.startLogging(5000, () => ({
+      function: 'syncPipelineToMergeTable',
+      table,
       totalRows,
       appendRowBatch: appendRowBatch.length,
     }));
 
     console.log(dataSync.timeElapsed, "Start paging the cursor...");
 
-    for await (const row of cursor) {
+    for await (const document of cursor) {
       totalRows += 1;
-      appendRowBatch.push(row);
+      appendRowBatch.push(document);
       if (appendRowBatch.length >= dataSync.batchSize) {
         dataSync.writeBatch(appendRowBatch);
         appendRowBatch = [];
@@ -369,11 +376,7 @@ export const syncPipelineToMergeTable = async (
 
     await dataSync.commitWrites();
 
-    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
-
     await dataSync.mergeTmpTable();
-
-    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
 
     return true;
   } catch (e) {
@@ -390,3 +393,58 @@ export const syncPipelineToMergeTable = async (
 
   return false;
 };
+
+export const syncFindToMergeTable = async (
+  cursor: FindCursor,
+  transform: (document: Document) => JSONObject,
+  table: TableName,
+): Promise<SyncResult> => {
+  
+  const dataSync = new BqDataSync(table, { batchSize: 2000 });
+  try {
+    await dataSync.init();
+
+    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
+
+    let totalRows = 0;
+    let appendRowBatch: JSONObject[] = [];
+
+    dataSync.startLogging(5000, () => ({
+      totalRows,
+      appendRowBatch: appendRowBatch.length,
+    }));
+
+    console.log(dataSync.timeElapsed, "Start paging the cursor...");
+
+    for await (const document of cursor) {
+      totalRows += 1;
+      appendRowBatch.push(transform(document));
+      if (appendRowBatch.length >= dataSync.batchSize) {
+        dataSync.writeBatch(appendRowBatch);
+        appendRowBatch = [];
+      }
+    }
+
+    console.log(dataSync.timeElapsed, "Finished paging the cursor", totalRows);
+
+    if (appendRowBatch.length) {
+      dataSync.writeBatch(appendRowBatch);
+    }
+
+    await dataSync.commitWrites();
+    await dataSync.mergeTmpTable();
+
+    return true;
+  } catch (e) {
+    throw e;
+  } finally {
+    dataSync.stopLogging();
+    await Promise.all([
+      cursor.close(),
+      dataSync.closeStream(),
+      dataSync.deleteTmpData().then(() => dataSync.countAllTableRows()),
+    ]);
+  }
+
+  return false;
+}
