@@ -410,6 +410,8 @@ export const syncFindToMergeTable = async (
     let appendRowBatch: JSONObject[] = [];
 
     dataSync.startLogging(5000, () => ({
+      function: 'syncFindToMergeTable',
+      table,
       totalRows,
       appendRowBatch: appendRowBatch.length,
     }));
