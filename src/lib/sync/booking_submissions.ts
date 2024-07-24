@@ -2,6 +2,8 @@ import { ObjectId } from "mongodb";
 import { mongoConnect } from "../util";
 import { syncToTable } from "./sync-util";
 
+import type { BookingSubmissionDb } from "../../schema/mongodb";
+
 export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();
 
@@ -11,17 +13,8 @@ export const syncBookingSubmissions = async () => {
   i.getTimestamp();
 
   const syncResult = await syncToTable<
-    {
-      _id: ObjectId;
-      created?: number;
-      updated?: number;
-      status_updated?: number;
-      eligibility?: number;
-      _user_id?: ObjectId;
-      _booking_id?: ObjectId;
-      status?: number;
-    },
-    { ID: string, bad: boolean }
+    BookingSubmissionDb,
+    { ID: string; bad: boolean }
   >(
     db.collection("booking_submission").find(
       {
