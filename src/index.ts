@@ -5,6 +5,7 @@ import { syncCreditActivity as syncCreditActivityAggregate } from "./lib/sync/cr
 import { syncCreditActivity as syncCreditActivityFind } from "./lib/sync/credit-activity-find";
 import { syncTransactions } from "./lib/sync/transactions";
 import { syncBookingSubmissions } from "./lib/sync/booking_submissions";
+import { syncTeams } from "./lib/sync/teams";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
   const { method, table, options } = decodeEventData(cloudEvent);
@@ -30,6 +31,8 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
             return syncTransactions();
           case "booking_submissions":
             return syncBookingSubmissions();
+          case "teams":
+            return syncTeams();
           default:
             throw new Error(`Table ${table} is not handled`);
         }
