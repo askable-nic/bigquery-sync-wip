@@ -38,7 +38,7 @@ class BqDataSync {
   writePromises: ReturnType<PendingWrite["getResult"]>[] = [];
   pwOffset = 0;
 
-  batchSize: number;
+  writeBatchSize: number;
   useTmpTable: boolean;
 
   ready = false;
@@ -49,8 +49,8 @@ class BqDataSync {
   constructor(tableName: TableName, options: BqDataSyncOptions = {}) {
     this.startTime = Date.now();
 
-    this.batchSize = options.batchSize ?? 1000;
-    this.useTmpTable = options.useTmpTable ?? true;
+    this.writeBatchSize = options.batchSize ?? 1000;
+    this.useTmpTable = options.useTmpTable ?? false;
 
     this.tableName = tableName; // main table to end up with the data
     this.writeStreamTableName = this.useTmpTable
@@ -420,7 +420,7 @@ export const syncPipelineToTmpTable = async (
     for await (const document of cursor) {
       totalRows += 1;
       appendRowBatch.push(document);
-      if (appendRowBatch.length >= dataSync.batchSize) {
+      if (appendRowBatch.length >= dataSync.writeBatchSize) {
         dataSync.writeBatch(appendRowBatch);
         appendRowBatch = [];
       }
@@ -478,7 +478,7 @@ export const syncToTmpTable = async (
     for await (const document of cursor) {
       totalRows += 1;
       appendRowBatch.push(transform(document));
-      if (appendRowBatch.length >= dataSync.batchSize) {
+      if (appendRowBatch.length >= dataSync.writeBatchSize) {
         dataSync.writeBatch(appendRowBatch);
         appendRowBatch = [];
       }
@@ -537,7 +537,7 @@ export const syncToTable = async (
     for await (const document of cursor) {
       totalRows += 1;
       appendRowBatch.push(transform(document));
-      if (appendRowBatch.length >= dataSync.batchSize) {
+      if (appendRowBatch.length >= dataSync.writeBatchSize) {
         dataSync.writeBatch(appendRowBatch);
         appendRowBatch = [];
       }
