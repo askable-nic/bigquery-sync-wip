@@ -1,4 +1,4 @@
-import { syncToTmpTable, syncToTable } from "./sync-util";
+import { syncToTable } from "./sync-util";
 import { mongoConnect } from "../util";
 import { creditTypeMap, refundTypeMap } from "../constants";
 
@@ -6,7 +6,7 @@ export const syncCreditActivity = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("credit_activity").find(
-      { type: { $in: creditTypeMap.map(([k]) => k).flat() } },
+      {},
       {
         // sort: { _id: -1 },
         projection: {
@@ -33,7 +33,7 @@ export const syncCreditActivity = async () => {
     (doc) => {
       const createdDate = doc.created ? new Date(doc.created) : doc._id.getTimestamp();
       const creditAmount = (() => {
-        if (!doc.amount) {
+        if (typeof doc.amount !== 'number') {
           return null;
         }
         const amount: number = doc.accounting_type === 2 ? doc.amount * -1 : doc.amount;

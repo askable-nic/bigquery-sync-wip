@@ -1,12 +1,12 @@
 import { CloudEventFunction } from "@google-cloud/functions-framework";
 
 import { decodeEventData } from "./lib/util";
-import { syncCreditActivity as syncCreditActivityAggregate } from "./lib/sync/credit-activity-aggregate";
-import { syncCreditActivity as syncCreditActivityFind } from "./lib/sync/credit-activity-find";
-import { syncTransactions } from "./lib/sync/transactions";
+
+import { syncCreditActivity } from "./lib/sync/credit_activity";
+import { syncTransactions } from "./lib/sync/sales";
 import { syncBookingSubmissions } from "./lib/sync/booking_submissions";
 import { syncTeams } from "./lib/sync/teams";
-import { pushExchangeRateData } from "./lib/sync/exchange-rate-data";
+import { pushExchangeRateData } from "./lib/sync/exchange_rate_data";
 
 import { TableName } from "./lib/types";
 
@@ -22,7 +22,7 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
   }
   if (method === "sync") {
     const syncHandlers: Record<TableName, () => Promise<unknown>> = {
-      credit_activity: syncCreditActivityFind,
+      credit_activity: syncCreditActivity,
       transactions: syncTransactions,
       booking_submissions: syncBookingSubmissions,
       teams: syncTeams,

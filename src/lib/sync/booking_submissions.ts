@@ -5,7 +5,7 @@ import { syncToTable } from "./sync-util";
 export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();
 
-  const updatedSince = Date.now() - 1000 * 3600 * 24 * 7; // 1 week
+  const updatedSince = Date.now() - 1000 * 3600 * 24 * 1; // 1 day
 
   var i = new ObjectId();
   i.getTimestamp();

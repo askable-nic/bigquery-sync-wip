@@ -1,6 +1,6 @@
 export type TableName =
   | "credit_activity"
-  | "transactions"
+  | "sales"
   | "booking_submissions"
   | "exchange_rate_data"
   | "teams";
