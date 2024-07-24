@@ -1,10 +1,10 @@
-import { syncToMergeTable } from "./sync-util";
+import { syncToTmpTable, syncToTable } from "./sync-util";
 import { mongoConnect } from "../util";
 import { creditTypeMap, refundTypeMap } from "../constants";
 
 export const syncCreditActivity = async () => {
   const { db, client: mongoClient } = await mongoConnect();
-  const syncResult = await syncToMergeTable(
+  const syncResult = await syncToTable(
     db.collection("credit_activity").find(
       { type: { $in: creditTypeMap.map(([k]) => k).flat() } },
       {

@@ -47,3 +47,8 @@ export const idFieldName: Record<TableName, string> = {
   exchange_rate_data: "Date_Key",
   booking_submissions: "ID",
 };
+
+export const tableUtilColumns = {
+  uuid: '_uuid',
+  syncTime: '_sync_time',
+};

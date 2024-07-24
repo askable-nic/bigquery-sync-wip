@@ -69,7 +69,7 @@ export const mongoConnect = async (dbName: string = "askable") => {
   };
 };
 
-export const mergeTableName = (table: TableName) => `${table}_tmp_merge`;
+export const tmpTableName = (table: TableName) => `${table}_tmp_merge`;
 
 type TableMetadata = {
   tableReference: { projectId?: string; datasetId?: string; tableId?: string };

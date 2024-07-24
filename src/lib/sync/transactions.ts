@@ -1,4 +1,4 @@
-import { syncPipelineToMergeTable } from "./sync-util";
+import { syncPipelineToTmpTable } from "./sync-util";
 import { transactionStatusMap, transactionTypeMap } from "../constants";
 
 export const syncTransactions = async () => {
@@ -183,5 +183,5 @@ export const syncTransactions = async () => {
     },
   ];
 
-  return syncPipelineToMergeTable(pipeline, "transactions", "transactions");
+  return syncPipelineToTmpTable(pipeline, "transactions", "transactions");
 };

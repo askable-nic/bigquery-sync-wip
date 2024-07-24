@@ -1,4 +1,4 @@
-import { syncPipelineToMergeTable } from "./sync-util";
+import { syncPipelineToTmpTable } from "./sync-util";
 import { creditTypeMap, refundTypeMap, studyTypeMap } from "../constants";
 
 export const syncCreditActivity = async () => {
@@ -233,5 +233,5 @@ export const syncCreditActivity = async () => {
     },
   ];
 
-  return syncPipelineToMergeTable(pipeline, "credit_activity", "credit_activity");
+  return syncPipelineToTmpTable(pipeline, "credit_activity", "credit_activity");
 };
