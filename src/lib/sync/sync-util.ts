@@ -508,9 +508,9 @@ export const syncToTmpTable = async (
   return false;
 };
 
-export const syncToTable = async (
+export const syncToTable = async <DocSchema = Document, TableSchema extends JSONObject = JSONObject>(
   cursor: FindCursor,
-  transform: (document: Document) => JSONObject,
+  transform: (document: DocSchema) => TableSchema,
   table: TableName
 ): Promise<SyncResult> => {
   const dataSync = new BqDataSync(table, {

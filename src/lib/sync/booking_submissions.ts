@@ -10,7 +10,19 @@ export const syncBookingSubmissions = async () => {
   var i = new ObjectId();
   i.getTimestamp();
 
-  const syncResult = await syncToTable(
+  const syncResult = await syncToTable<
+    {
+      _id: ObjectId;
+      created?: number;
+      updated?: number;
+      status_updated?: number;
+      eligibility?: number;
+      _user_id?: ObjectId;
+      _booking_id?: ObjectId;
+      status?: number;
+    },
+    { ID: string, bad: boolean }
+  >(
     db.collection("booking_submission").find(
       {
         $or: [
