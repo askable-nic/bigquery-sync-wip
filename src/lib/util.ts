@@ -47,6 +47,7 @@ export const decodeEventData = (
 export const env = process.env as {
   ANALYTICS_DB_URI: string;
   BIGQUERY_DATASET: string;
+  OPENEXCHANGERATES_APP_ID: string;
 };
 
 export const mongoConnect = async (dbName: string = "askable") => {

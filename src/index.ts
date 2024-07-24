@@ -6,6 +6,9 @@ import { syncCreditActivity as syncCreditActivityFind } from "./lib/sync/credit-
 import { syncTransactions } from "./lib/sync/transactions";
 import { syncBookingSubmissions } from "./lib/sync/booking_submissions";
 import { syncTeams } from "./lib/sync/teams";
+import { pushExchangeRateData } from "./lib/sync/exchange-rate-data";
+
+import { TableName } from "./lib/types";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
   const { method, table, options } = decodeEventData(cloudEvent);
@@ -18,24 +21,19 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
     return;
   }
   if (method === "sync") {
+    const syncHandlers: Record<TableName, () => Promise<unknown>> = {
+      credit_activity: syncCreditActivityFind,
+      transactions: syncTransactions,
+      booking_submissions: syncBookingSubmissions,
+      teams: syncTeams,
+      exchange_rate_data: pushExchangeRateData,
+    };
     try {
       const result = await (async () => {
-        switch (table) {
-          case "credit_activity":
-            if (options?.queryOp === "aggregate") {
-              return syncCreditActivityAggregate();
-            } else {
-              return syncCreditActivityFind();
-            }
-          case "transactions":
-            return syncTransactions();
-          case "booking_submissions":
-            return syncBookingSubmissions();
-          case "teams":
-            return syncTeams();
-          default:
-            throw new Error(`Table ${table} is not handled`);
+        if (!syncHandlers[table]) {
+          throw new Error(`Table ${table} is not handled`);
         }
+        return await syncHandlers[table]();
       })();
       console.log(`Finished syncing ${table}: ${JSON.stringify(result)}`);
       return result;

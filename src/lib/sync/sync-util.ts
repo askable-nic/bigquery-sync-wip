@@ -565,3 +565,12 @@ export const syncToTable = async (
 
   return false;
 };
+
+// For pushing a small number of rows, with no dedupe logic
+export async function pushRowsToTable(table: TableName, rows: JSONObject[]) {
+  const dataSync = new BqDataSync(table);
+  await dataSync.init();
+  await dataSync.writeBatch(rows);
+  await dataSync.commitWrites();
+  await dataSync.closeStream();
+}
