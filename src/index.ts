@@ -23,7 +23,7 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
   if (method === "sync") {
     const syncHandlers: Record<TableName, () => Promise<unknown>> = {
       credit_activity: syncCreditActivity,
-      transactions: syncTransactions,
+      sales: syncTransactions,
       booking_submissions: syncBookingSubmissions,
       teams: syncTeams,
       exchange_rate_data: pushExchangeRateData,

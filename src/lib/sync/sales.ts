@@ -35,7 +35,7 @@ export const syncTransactions = async () => {
       return {
         ID: doc._id.toString(),
         Created: createdDate,
-        Updated: doc.updated ? new Date(doc.updated) : createdDate,,
+        Updated: doc.updated ? new Date(doc.updated) : createdDate,
         Team_ID: doc._team_id ? doc._team_id.toString() : null,
         User_ID: doc._user_id ? doc._user_id.toString() : null,
         Admin_User_ID: doc._admin_user_id ? doc._admin_user_id.toString() : null,

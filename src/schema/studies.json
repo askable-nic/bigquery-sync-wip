@@ -1,0 +1,9 @@
+[
+  {
+    "name": "ID",
+    "mode": "REQUIRED",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  }
+]

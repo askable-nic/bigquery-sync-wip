@@ -43,7 +43,7 @@ export const transactionStatusMap = [
 
 export const idFieldName: Record<TableName, string> = {
   credit_activity: "ID",
-  transactions: "ID",
+  sales: "ID",
   exchange_rate_data: "Date_Key",
   booking_submissions: "ID",
   teams: "ID",

@@ -4,3 +4,4 @@ export type TableName =
   | "booking_submissions"
   | "exchange_rate_data"
   | "teams";
+  
