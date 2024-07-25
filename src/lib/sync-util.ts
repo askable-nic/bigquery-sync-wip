@@ -6,9 +6,9 @@ import { StreamConnection } from "@google-cloud/bigquery-storage/build/src/manag
 import { WriteStream } from "@google-cloud/bigquery-storage/build/src/managedwriter/stream_types";
 import { Document, FindCursor } from "mongodb";
 
-import { env, tmpTableName, mongoConnect } from "../util";
-import { TableName } from "../types";
-import { idFieldName, tableUtilColumns } from "../constants";
+import { env, tmpTableName, mongoConnect } from "./util";
+import { TableName } from "./types";
+import { idFieldName, tableUtilColumns } from "./constants";
 
 type BqDataSyncOptions = {
   batchSize?: number;

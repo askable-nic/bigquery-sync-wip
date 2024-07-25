@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import { mongoConnect } from "../util";
-import { syncToTable } from "./sync-util";
+import { syncToTable } from "../sync-util";
 
 export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();

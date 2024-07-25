@@ -1,5 +1,5 @@
 import { Document } from "mongodb";
-import { syncToTable } from "./sync-util";
+import { syncToTable } from "../sync-util";
 import { mongoConnect } from "../util";
 
 export const syncTeams = async () => {

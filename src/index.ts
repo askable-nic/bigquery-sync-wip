@@ -2,11 +2,11 @@ import { CloudEventFunction } from "@google-cloud/functions-framework";
 
 import { decodeEventData } from "./lib/util";
 
-import { syncCreditActivity } from "./lib/sync/credit_activity";
-import { syncTransactions } from "./lib/sync/sales";
-import { syncBookingSubmissions } from "./lib/sync/booking_submissions";
-import { syncTeams } from "./lib/sync/teams";
-import { pushExchangeRateData } from "./lib/sync/exchange_rate_data";
+import { syncCreditActivity } from "./lib/sync-handlers/credit_activity";
+import { syncTransactions } from "./lib/sync-handlers/sales";
+import { syncBookingSubmissions } from "./lib/sync-handlers/booking_submissions";
+import { syncTeams } from "./lib/sync-handlers/teams";
+import { pushExchangeRateData } from "./lib/sync-handlers/exchange_rate_data";
 
 import { TableName } from "./lib/types";
 
