@@ -3,7 +3,6 @@ import { env } from "../util";
 import { pushRowsToTable } from "../sync-util";
 
 export const pushExchangeRateData = async () => {
-  // GET https://openexchangerates.org/api/latest.json?app_id={ID}
   const { data } = await axios.get(
     `https://openexchangerates.org/api/latest.json?app_id=${env.OPENEXCHANGERATES_APP_ID}`
   );

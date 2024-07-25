@@ -1,4 +1,3 @@
-import { ObjectId } from "mongodb";
 import { mongoConnect } from "../util";
 import { syncToTable } from "../sync-util";
 
@@ -6,9 +5,6 @@ export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();
 
   const updatedSince = Date.now() - 1000 * 3600 * 24 * 1; // 1 day
-
-  var i = new ObjectId();
-  i.getTimestamp();
 
   const syncResult = await syncToTable(
     db.collection("booking_submission").find(

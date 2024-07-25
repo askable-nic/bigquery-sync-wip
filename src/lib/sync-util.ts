@@ -128,7 +128,7 @@ class BqDataSync {
     this.ready = true;
   }
 
-  startLogging(timeout: number, extra?: () => Record<string, any>) {
+  startLogging(timeout: number, extra?: () => Record<string, unknown>) {
     this.stopLogging();
     this.loggerInterval = setInterval(() => {
       console.log({
@@ -210,7 +210,7 @@ class BqDataSync {
     this.uuidsSet = true;
     console.log(this.timeElapsed, "UUIDs set", {
       numDmlAffectedRows: result?.numDmlAffectedRows,
-      dmlStats: (result as any)?.dmlStats,
+      dmlStats: (result as unknown as { dmlStats: unknown })?.dmlStats,
     });
   }
 
@@ -308,7 +308,7 @@ class BqDataSync {
 
     console.log(this.timeElapsed, "Table deduped", {
       numDmlAffectedRows: result?.numDmlAffectedRows,
-      dmlStats: (result as any)?.dmlStats,
+      dmlStats: (result as unknown as { dmlStats: unknown })?.dmlStats,
     });
 
     console.log(this.timeElapsed, await this.countAllTableRows());
@@ -437,8 +437,6 @@ export const syncPipelineToTmpTable = async (
     await dataSync.mergeTmpTable();
 
     return true;
-  } catch (e) {
-    throw e;
   } finally {
     dataSync.stopLogging();
     await Promise.all([
@@ -494,8 +492,6 @@ export const syncToTmpTable = async (
     await dataSync.mergeTmpTable();
 
     return true;
-  } catch (e) {
-    throw e;
   } finally {
     dataSync.stopLogging();
     await Promise.all([
@@ -556,8 +552,6 @@ export const syncToTable = async (
     });
 
     return true;
-  } catch (e) {
-    throw e;
   } finally {
     dataSync.stopLogging();
     await Promise.all([cursor.close(), dataSync.closeStream()]);

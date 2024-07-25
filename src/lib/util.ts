@@ -1,10 +1,10 @@
 import { BigQuery, TableField } from "@google-cloud/bigquery";
 import { CloudEvent } from "@google-cloud/functions-framework";
 import { MongoClient, ServerApiVersion } from "mongodb";
-
+import dotenv from "dotenv";
 import { TableName } from "./types";
 
-require("dotenv").config();
+dotenv.config();
 
 type EventDataSchema = {
   table?: TableName;
@@ -19,7 +19,9 @@ export const decodeEventData = (
   if (process.env.MOCK_EVENT_DATA) {
     try {
       return JSON.parse(process.env.MOCK_EVENT_DATA) as EventDataSchema;
-    } catch (e) {}
+    } catch (e) {
+      return defaultValue;
+    }
   }
   if (process.env.ENV === 'dev' && typeof event?.query === 'object') {
     const query = event.query as unknown as EventDataSchema;

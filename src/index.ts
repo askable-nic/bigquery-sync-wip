@@ -11,7 +11,7 @@ import { pushExchangeRateData } from "./lib/sync-handlers/exchange_rate_data";
 import { TableName } from "./lib/types";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
-  const { method, table, options } = decodeEventData(cloudEvent);
+  const { method, table } = decodeEventData(cloudEvent);
   if (!method) {
     console.error("No method found in event data");
     return;
