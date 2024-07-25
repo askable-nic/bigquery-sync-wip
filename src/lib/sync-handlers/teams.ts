@@ -23,11 +23,11 @@ export const syncTeams = async () => {
     (doc) => {
       return {
         ID: doc._id.toString(),
+        Name: doc.name ?? null,
+        Operational_Office: doc.operational_office ?? null,
         Organisation_ID: doc._organisation_id
           ? doc._organisation_id.toString()
           : null,
-        Name: doc.name ?? null,
-        Operational_Office: doc.operational_office ?? null,
         User_IDs: doc.users
           ? doc.users
               .filter((user: Document) => user._id && user.status !== 0)

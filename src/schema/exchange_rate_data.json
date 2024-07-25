@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Timestamp",
+    "mode": "REQUIRED",
+    "type": "TIMESTAMP",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Base",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Rates",
+    "mode": "NULLABLE",
+    "type": "JSON",
+    "description": "",
+    "fields": []
+  }
+]

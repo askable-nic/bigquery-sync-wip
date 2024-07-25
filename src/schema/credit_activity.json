@@ -124,5 +124,19 @@
     "type": "STRING",
     "description": "",
     "fields": []
+  },
+  {
+    "name": "_uuid",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "_sync_time",
+    "mode": "NULLABLE",
+    "type": "TIMESTAMP",
+    "description": "",
+    "fields": []
   }
 ]

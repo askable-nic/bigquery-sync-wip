@@ -19,7 +19,6 @@
     "type": "STRING",
     "mode": "NULLABLE"
   },
-
   {
     "name": "User_IDs",
     "mode": "REPEATED",
@@ -27,7 +26,20 @@
     "description": "",
     "fields": []
   },
-
+  {
+    "name": "Credit_Balance",
+    "mode": "NULLABLE",
+    "type": "INTEGER",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Credit_Expiry",
+    "mode": "NULLABLE",
+    "type": "TIMESTAMP",
+    "description": "",
+    "fields": []
+  },
   {
     "name": "_uuid",
     "mode": "NULLABLE",

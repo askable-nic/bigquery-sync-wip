@@ -5,5 +5,47 @@
     "type": "STRING",
     "description": "",
     "fields": []
+  },
+  {
+    "name": "Created",
+    "mode": "NULLABLE",
+    "type": "TIMESTAMP",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Updated",
+    "mode": "NULLABLE",
+    "type": "TIMESTAMP",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Type",
+    "mode": "REQUIRED",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Name",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "_uuid",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "_sync_time",
+    "mode": "NULLABLE",
+    "type": "TIMESTAMP",
+    "description": "",
+    "fields": []
   }
 ]
