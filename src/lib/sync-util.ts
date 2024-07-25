@@ -6,7 +6,7 @@ import { StreamConnection } from "@google-cloud/bigquery-storage/build/src/manag
 import { WriteStream } from "@google-cloud/bigquery-storage/build/src/managedwriter/stream_types";
 import { Document, FindCursor } from "mongodb";
 
-import { env, tmpTableName, mongoConnect } from "./util";
+import { env, tmpTableName } from "./util";
 import { TableName } from "./types";
 import { idFieldName, tableUtilColumns } from "./constants";
 
@@ -390,120 +390,6 @@ type SyncResult =
     }
   | boolean;
 
-export const syncPipelineToTmpTable = async (
-  pipeline: Document[],
-  collection: string,
-  table: TableName
-): Promise<SyncResult> => {
-  const dataSync = new BqDataSync(table, { batchSize: 2000 });
-
-  const { db, client: mongoClient } = await mongoConnect();
-  const cursor = db
-    .collection(collection)
-    .aggregate(pipeline, { readPreference: "secondaryPreferred" });
-
-  try {
-    await dataSync.init();
-
-    let totalRows = 0;
-    let appendRowBatch: JSONObject[] = [];
-
-    dataSync.startLogging(5000, () => ({
-      function: "syncPipelineToTmpTable",
-      table,
-      totalRows,
-      appendRowBatch: appendRowBatch.length,
-    }));
-
-    console.log(dataSync.timeElapsed, "Start paging the cursor...");
-
-    for await (const document of cursor) {
-      totalRows += 1;
-      appendRowBatch.push(document);
-      if (appendRowBatch.length >= dataSync.writeBatchSize) {
-        dataSync.writeBatch(appendRowBatch);
-        appendRowBatch = [];
-      }
-    }
-
-    console.log(dataSync.timeElapsed, "Finished paging the cursor", totalRows);
-
-    if (appendRowBatch.length) {
-      dataSync.writeBatch(appendRowBatch);
-    }
-
-    await dataSync.commitWrites();
-
-    await dataSync.mergeTmpTable();
-
-    return true;
-  } finally {
-    dataSync.stopLogging();
-    await Promise.all([
-      cursor.close(),
-      mongoClient.close(),
-      dataSync.closeStream(),
-      dataSync.deleteTmpData().then(() => dataSync.countAllTableRows()),
-    ]);
-  }
-
-  return false;
-};
-
-export const syncToTmpTable = async (
-  cursor: FindCursor,
-  transform: (document: Document) => JSONObject,
-  table: TableName
-): Promise<SyncResult> => {
-  const dataSync = new BqDataSync(table, { batchSize: 2000 });
-  try {
-    await dataSync.init();
-
-    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
-
-    let totalRows = 0;
-    let appendRowBatch: JSONObject[] = [];
-
-    dataSync.startLogging(5000, () => ({
-      function: "syncToTmpTable",
-      table,
-      totalRows,
-      appendRowBatch: appendRowBatch.length,
-    }));
-
-    console.log(dataSync.timeElapsed, "Start paging the cursor...");
-
-    for await (const document of cursor) {
-      totalRows += 1;
-      appendRowBatch.push(transform(document));
-      if (appendRowBatch.length >= dataSync.writeBatchSize) {
-        dataSync.writeBatch(appendRowBatch);
-        appendRowBatch = [];
-      }
-    }
-
-    console.log(dataSync.timeElapsed, "Finished paging the cursor", totalRows);
-
-    if (appendRowBatch.length) {
-      dataSync.writeBatch(appendRowBatch);
-    }
-
-    await dataSync.commitWrites();
-    await dataSync.mergeTmpTable();
-
-    return true;
-  } finally {
-    dataSync.stopLogging();
-    await Promise.all([
-      cursor.close(),
-      dataSync.closeStream(),
-      dataSync.deleteTmpData().then(() => dataSync.countAllTableRows()),
-    ]);
-  }
-
-  return false;
-};
-
 export const syncToTable = async (
   cursor: FindCursor,
   transform: (document: Document) => JSONObject,
@@ -552,6 +438,8 @@ export const syncToTable = async (
     });
 
     return true;
+  } catch (e) {
+    console.error("Error syncing to table", e);
   } finally {
     dataSync.stopLogging();
     await Promise.all([cursor.close(), dataSync.closeStream()]);
