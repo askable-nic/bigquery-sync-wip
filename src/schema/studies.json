@@ -62,7 +62,7 @@
   {
     "name": "Owner_ID",
     "type": "STRING",
-    "mode": "NULLABLE"
+    "mode": "REPEATED"
   },
   {
     "name": "Status",
@@ -142,6 +142,13 @@
     "name": "Online_Task_Tool",
     "type": "STRING",
     "mode": "NULLABLE"
+  },
+  {
+    "name": "Emoji_Tags",
+    "mode": "REPEATED",
+    "type": "STRING",
+    "description": "",
+    "fields": []
   },
   {
     "name": "_uuid",

@@ -5,6 +5,7 @@ export const syncTeams = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("organisations").find(
+      {},
       {
         // sort: { _id: -1 },
         projection: {

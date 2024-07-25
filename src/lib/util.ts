@@ -72,6 +72,13 @@ export const mongoConnect = async (dbName: string = "askable") => {
   };
 };
 
+export const safeMapLookup = (map: Record<string | number, string>, key: string | number) => {
+  if (typeof key === 'string' || typeof key === 'number') {
+    return map?.[key] ?? null;
+  }
+  return null;
+}
+
 export const tmpTableName = (table: TableName) => `${table}_tmp_merge`;
 
 type TableMetadata = {
