@@ -1,14 +1,19 @@
 import { syncToTable } from "../sync-util";
-import { mongoConnect, safeMapLookup } from "../util";
+import { dayDiffMs, mongoConnect, safeMapLookup } from "../util";
 import { creditTypeMap, refundTypeMap } from "../constants";
+
+/*
+Partitioned: Created (DAY)
+Clustered by: Team_ID, Type
+*/
 
 export const syncCreditActivity = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("credit_activity").find(
-      {},
+      { updated: { $gt: dayDiffMs(7) } },
       {
-        // sort: { _id: -1 },
+        sort: { _id: -1 },
         projection: {
           _admin_user_id: 1,
           _booking_id: 1,

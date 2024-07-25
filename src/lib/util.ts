@@ -103,3 +103,5 @@ export const bqTableMeta = async (
 
   return response[0] as TableMetadata;
 };
+
+export const dayDiffMs = (days: number) => Date.now() - days * 24 * 60 * 60 * 1000;

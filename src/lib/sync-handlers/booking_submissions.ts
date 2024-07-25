@@ -1,10 +1,10 @@
-import { mongoConnect } from "../util";
+import { dayDiffMs, mongoConnect } from "../util";
 import { syncToTable } from "../sync-util";
 
 export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();
 
-  const updatedSince = Date.now() - 1000 * 3600 * 24 * 1; // 1 day
+  const updatedSince = dayDiffMs(2); // 1 day
 
   const syncResult = await syncToTable(
     db.collection("booking_submission").find(

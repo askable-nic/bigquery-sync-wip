@@ -29,6 +29,9 @@ class BqDataSync {
     fields: TableField[];
   };
 
+  hasUuidField = false;
+  hasSyncTimeField = false;
+
   client: BigQuery;
   destinationTable?: string;
   writeClient?: managedwriter.WriterClient;
@@ -93,6 +96,13 @@ class BqDataSync {
         );
       }
     }
+
+    this.hasUuidField = !!this._metadata.fields.find(
+      (field) => field.name === tableUtilColumns.uuid
+    );
+    this.hasSyncTimeField = !!this._metadata.fields.find(
+      (field) => field.name === tableUtilColumns.syncTime
+    );
 
     this.destinationTable = `projects/${this.projectId}/datasets/${this.datasetId}/tables/${this.tableId}`;
     const streamType = managedwriter.PendingStream;
@@ -197,15 +207,18 @@ class BqDataSync {
     if (!this.fields) {
       throw new Error("Not initialized");
     }
-    if (
-      !this.fields.find((field) => field.name === tableUtilColumns.uuid) ||
-      !this.fields.find((field) => field.name === tableUtilColumns.syncTime)
-    ) {
+    if (!this.hasUuidField || !this.hasSyncTimeField || this.uuidsSet) {
       return;
     }
     console.log(this.timeElapsed, "Setting UUIDs...");
     const [, , result] = await this.client.query(
-      `UPDATE \`${this.datasetId}.${this.writeStreamTableName}\` SET \`${tableUtilColumns.uuid}\` = GENERATE_UUID(), \`${tableUtilColumns.syncTime}\` = CURRENT_TIMESTAMP() WHERE \`${tableUtilColumns.uuid}\` IS NULL OR \`${tableUtilColumns.syncTime}\` IS NULL;`
+      `UPDATE \`${this.datasetId}.${this.writeStreamTableName}\` SET \`${
+        tableUtilColumns.uuid
+      }\` = GENERATE_UUID(), \`${
+        tableUtilColumns.syncTime
+      }\` = TIMESTAMP('${new Date(this.startTime).toJSON()}') WHERE \`${
+        tableUtilColumns.uuid
+      }\` IS NULL OR \`${tableUtilColumns.syncTime}\` IS NULL;`
     );
     this.uuidsSet = true;
     console.log(this.timeElapsed, "UUIDs set", {
@@ -301,6 +314,14 @@ class BqDataSync {
       "(",
       `SELECT \`${tableUtilColumns.uuid}\``,
       `FROM \`${this.datasetId}.${this.writeStreamTableName}\``,
+      "WHERE ID IN",
+      "(",
+      `SELECT ID FROM \`${this.datasetId}.${
+        this.writeStreamTableName
+      }\` WHERE \`${tableUtilColumns.syncTime}\` = TIMESTAMP('${new Date(
+        this.startTime
+      ).toJSON()}')`,
+      ")",
       `QUALIFY ROW_NUMBER() OVER (PARTITION BY \`${this.idField}\` ORDER BY \`${tableUtilColumns.syncTime}\` DESC) > 1`,
       ")",
     ].join(" ");
