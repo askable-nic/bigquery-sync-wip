@@ -56,14 +56,15 @@ export const syncStudies = async () => {
           "config.criteria.locations.bounds.country": 1,
           "config.criteria.locations.countries.country": 1,
           "config.criteria.locations.states.country": 1,
+          "config.incentive": 1,
           "config.incentives": 1,
           "config.location.country": 1,
           "config.online_task.tool": 1,
           "config.recruitment.byo": 1,
           "config.remote.tool": 1,
           "config.session.duration": 1,
-          "config.sessions.end": 1,
-          "config.sessions.start": 1,
+          "session.end": 1,
+          "session.start": 1,
           "rating.overall": 1,
           approved_date: 1,
           confirmed_date: 1,
@@ -83,7 +84,7 @@ export const syncStudies = async () => {
         ? new Date(doc.created)
         : doc._id.getTimestamp();
 
-      const sessionTimes = ((doc?.config?.sessions ?? []) as Document[]).reduce(
+      const sessionTimes = ((doc?.session ?? []) as Document[]).reduce(
         (acc: { first: number; last: number }, session) => {
           if (session?.start < acc.first) {
             acc.first = session.start;
@@ -97,14 +98,13 @@ export const syncStudies = async () => {
       );
 
       const locations = [] as Document[];
+      if (doc?.config?.location?.country) {
+        locations.push(doc.config.location);
+      }
       try {
         locations.push(...(doc?.config?.criteria?.locations?.bounds ?? []));
         locations.push(...(doc?.config?.criteria?.locations?.states ?? []));
         locations.push(...(doc?.config?.criteria?.locations?.countries ?? []));
-
-        if (doc?.config?.location?.country) {
-          locations.push(doc.config.location);
-        }
       } catch (e) {
         console.warn(`Invalid location data for study ${doc._id}`);
       }
@@ -113,15 +113,20 @@ export const syncStudies = async () => {
       try {
         if (doc?.config?.incentives?.map) {
           incentives.push(
-            ...doc.config.incentives.map((incentive: Document) => ({
-              Currency: incentive.currency ?? null,
-              Amount: incentive.amount ?? null,
-            }))
+            ...doc.config.incentives
+              .filter(
+                (incentive: Document) =>
+                  incentive.value && incentive.currency_code
+              )
+              .map((incentive: Document) => ({
+                Currency: incentive.currency_code ?? null,
+                Amount: incentive.value ?? null,
+              }))
           );
         }
         if (doc?.config?.incentive?.value) {
           incentives.push({
-            Currency: doc.config.incentive.currency ?? null,
+            Currency: doc.config.incentive.currency_code ?? null,
             Amount: doc.config.incentive.value ?? null,
           });
         }
@@ -134,7 +139,7 @@ export const syncStudies = async () => {
       return {
         ID: doc._id.toString(),
         Created: created,
-        Updated: new Date(doc.updated),
+        Updated: doc.updated ? new Date(doc.updated) : created,
         Submitted: doc.confirmed_date ? new Date(doc.confirmed_date) : null,
         Approved: doc.approved_date ? new Date(doc.approved_date) : null,
         Fulfilled: doc.fulfilled_date ? new Date(doc.fulfilled_date) : null,
