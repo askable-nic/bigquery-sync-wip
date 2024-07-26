@@ -8,7 +8,7 @@ import { Document, FindCursor } from "mongodb";
 
 import { env, tmpTableName } from "./util";
 
-import { idFieldName, TableName, tableUtilColumns } from "./constants";
+import { TableName, tableUtilColumns } from "./constants";
 
 type BqDataSyncOptions = {
   batchSize?: number;
@@ -20,7 +20,7 @@ class BqDataSync {
 
   tableName: string;
   writeStreamTableName: string;
-  idField: string;
+  idField: string | null = "ID";
 
   _metadata?: {
     projectId: string;
@@ -60,11 +60,6 @@ class BqDataSync {
       ? tmpTableName(tableName)
       : tableName; // table to stream data into, which may be a tmp table
 
-    const idField = idFieldName[tableName];
-    if (!idField) {
-      throw new Error(`Missing/Invalid ID field for table ${tableName}`);
-    }
-    this.idField = idField;
     this.client = new BigQuery();
   }
 
@@ -104,6 +99,9 @@ class BqDataSync {
     this.hasSyncTimeField = !!this._metadata.fields.find(
       (field) => field.name === tableUtilColumns.syncTime
     );
+    if (!this._metadata.fields.find((field) => field.name === this.idField)) {
+      this.idField = null;
+    }
 
     this.destinationTable = `projects/${this.projectId}/datasets/${this.datasetId}/tables/${this.tableId}`;
     const streamType = managedwriter.PendingStream;
@@ -208,7 +206,12 @@ class BqDataSync {
     if (!this.fields) {
       throw new Error("Not initialized");
     }
-    if (!this.hasUuidField || !this.hasSyncTimeField || this.uuidsSet) {
+    if (
+      !this.idField ||
+      !this.hasUuidField ||
+      !this.hasSyncTimeField ||
+      this.uuidsSet
+    ) {
       return;
     }
     console.log(this.timeElapsed, "Setting UUIDs...");
@@ -231,6 +234,9 @@ class BqDataSync {
   async mergeTmpTable() {
     if (!this.ready) {
       throw new Error("Not initialized");
+    }
+    if (!this.idField) {
+      throw new Error("Can only merge tables with an ID fieldx");
     }
 
     console.log(this.timeElapsed, "Merging tmp table...");
@@ -292,7 +298,6 @@ class BqDataSync {
     if (!this.useTmpTable) {
       return;
     }
-
     if (!this.datasetId) {
       throw new Error("Not initialized");
     }
@@ -307,6 +312,9 @@ class BqDataSync {
   async dedupeWriteTable() {
     if (!this.uuidsSet) {
       throw new Error("UUIDs have not been set");
+    }
+    if (!this.idField) {
+      throw new Error("Can only dedupe tables with an ID field");
     }
     console.log(this.timeElapsed, "Deduping table...");
     const queryStatement = [

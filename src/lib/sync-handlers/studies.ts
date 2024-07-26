@@ -47,7 +47,34 @@ export const syncStudies = async () => {
         // sort: { _id: -1 },
         projection: {
           _id: 1,
+          _owner_id: 1,
+          _project_id: 1,
+          _team_id: 1,
+          "admin.emoji": 1,
+          "admin.tags.nufp": 1,
+          "config.credits_per_participant": 1,
+          "config.criteria.locations.bounds.country": 1,
+          "config.criteria.locations.countries.country": 1,
+          "config.criteria.locations.states.country": 1,
+          "config.incentives": 1,
+          "config.location.country": 1,
+          "config.online_task.tool": 1,
+          "config.recruitment.byo": 1,
+          "config.remote.tool": 1,
+          "config.session.duration": 1,
+          "config.sessions.end": 1,
+          "config.sessions.start": 1,
+          "rating.overall": 1,
+          approved_date: 1,
+          confirmed_date: 1,
+          created: 1,
+          fulfilled_date: 1,
           name: 1,
+          recruited_date: 1,
+          status: 1,
+          total_participants: 1,
+          type: 1,
+          updated: 1,
         },
       }
     ),
@@ -69,9 +96,37 @@ export const syncStudies = async () => {
         { first: Infinity, last: 0 }
       );
 
-      const locations = (doc?.config?.criteria?.locations ?? []) as Document[];
-      if (doc?.config?.location?.country) {
-        locations.push(doc.config.location);
+      const locations = [] as Document[];
+      try {
+        locations.push(...(doc?.config?.criteria?.locations?.bounds ?? []));
+        locations.push(...(doc?.config?.criteria?.locations?.states ?? []));
+        locations.push(...(doc?.config?.criteria?.locations?.countries ?? []));
+
+        if (doc?.config?.location?.country) {
+          locations.push(doc.config.location);
+        }
+      } catch (e) {
+        console.warn(`Invalid location data for study ${doc._id}`);
+      }
+
+      const incentives = [] as Document[];
+      try {
+        if (doc?.config?.incentives?.map) {
+          incentives.push(
+            ...doc.config.incentives.map((incentive: Document) => ({
+              Currency: incentive.currency ?? null,
+              Amount: incentive.amount ?? null,
+            }))
+          );
+        }
+        if (doc?.config?.incentive?.value) {
+          incentives.push({
+            Currency: doc.config.incentive.currency ?? null,
+            Amount: doc.config.incentive.value ?? null,
+          });
+        }
+      } catch (e) {
+        console.warn(`Invalid incentive data for study ${doc._id}`);
       }
 
       const emojiTagNames = emojiLabels(doc?.admin?.emoji ?? "");
@@ -105,12 +160,7 @@ export const syncStudies = async () => {
               .filter((country) => typeof country === "string")
           )
         ),
-        Incentives: (doc?.config?.incentives ?? []).map(
-          (incentive: Document) => ({
-            Currency: incentive.currency ?? null,
-            Amount: incentive.amount ?? null,
-          })
-        ),
+        Incentives: incentives ?? [],
         Credits_Per_Participant: doc?.config?.credits_per_participant ?? null,
         Quota: doc?.total_participants ?? null,
         Rating: doc?.rating?.overall ?? null,
@@ -127,7 +177,7 @@ export const syncStudies = async () => {
         Emoji_Tags: emojiTagNames,
       };
     },
-    "teams"
+    "studies"
   );
 
   await mongoClient.close();

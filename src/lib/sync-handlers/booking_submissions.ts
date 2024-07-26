@@ -1,11 +1,12 @@
-import { dayDiffMs, mongoConnect } from "../util";
-import { syncToTable } from "../sync-util";
+// import { dayDiffMs, mongoConnect } from "../util";
+// import { syncToTable } from "../sync-util";
 
 /*
 Partitioned: Date (DAY)
 Clustered by: Status, Eligibility
 */
 
+/* NOT IN USE IN v1 /
 export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();
 
@@ -61,3 +62,4 @@ export const syncBookingSubmissions = async () => {
 
   return syncResult;
 };
+/* - */

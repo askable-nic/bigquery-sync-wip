@@ -25,7 +25,7 @@ export const syncOrgs = async () => {
         Name: doc.name ?? null,
       };
     },
-    "teams"
+    "organisations"
   );
 
   await mongoClient.close();

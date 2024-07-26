@@ -89,15 +89,6 @@ export const studyOnlineTaskToolMap = {
   other: "Other",
 };
 
-export const idFieldName: Record<TableName, string | null> = {
-  credit_activity: "ID",
-  sales: "ID",
-  exchange_rates: null,
-  booking_submissions: "ID",
-  teams: "ID",
-  organisations: "ID",
-};
-
 export const tableUtilColumns = {
   uuid: "_uuid",
   syncTime: "_sync_time",
