@@ -3,7 +3,12 @@ import { mongoConnect } from "../util";
 import { transactionStatusMap, transactionTypeMap } from "../constants";
 import { safeMapLookup } from "../util";
 
-export const syncTransactions = async () => {
+/*
+Partitioned: ?
+Clustered by: ?
+*/
+
+export const syncSales = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("credit_activity").find(

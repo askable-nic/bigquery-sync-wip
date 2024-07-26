@@ -2,7 +2,7 @@ import { BigQuery, TableField } from "@google-cloud/bigquery";
 import { CloudEvent } from "@google-cloud/functions-framework";
 import { MongoClient, ServerApiVersion } from "mongodb";
 import dotenv from "dotenv";
-import { TableName } from "./types";
+import { TableName } from "./constants";
 
 dotenv.config();
 
@@ -23,11 +23,11 @@ export const decodeEventData = (
       return defaultValue;
     }
   }
-  if (process.env.ENV === 'dev' && typeof event?.query === 'object') {
+  if (process.env.ENV === "dev" && typeof event?.query === "object") {
     const query = event.query as unknown as EventDataSchema;
     return {
       table: query?.table,
-      method: query?.method
+      method: query?.method,
     };
   }
 
@@ -72,12 +72,15 @@ export const mongoConnect = async (dbName: string = "askable") => {
   };
 };
 
-export const safeMapLookup = (map: Record<string | number, string>, key: string | number) => {
-  if (typeof key === 'string' || typeof key === 'number') {
+export const safeMapLookup = (
+  map: Record<string | number, string>,
+  key: string | number
+) => {
+  if (typeof key === "string" || typeof key === "number") {
     return map?.[key] ?? null;
   }
   return null;
-}
+};
 
 export const tmpTableName = (table: TableName) => `${table}_tmp_merge`;
 
@@ -104,4 +107,5 @@ export const bqTableMeta = async (
   return response[0] as TableMetadata;
 };
 
-export const dayDiffMs = (days: number) => Date.now() - days * 24 * 60 * 60 * 1000;
+export const dayDiffMs = (days: number) =>
+  Date.now() - days * 24 * 60 * 60 * 1000;

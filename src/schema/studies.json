@@ -116,7 +116,7 @@
     "name": "Session_Duration",
     "type": "INTEGER",
     "mode": "NULLABLE",
-    "maxLength": "Minutes"
+    "description": "Minutes"
   },
   {
     "name": "BYO",

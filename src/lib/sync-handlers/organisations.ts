@@ -1,7 +1,12 @@
 import { syncToTable } from "../sync-util";
 import { mongoConnect } from "../util";
 
-export const syncTeams = async () => {
+/*
+Partitioned: (none)
+Clustered by: (none)
+*/
+
+export const syncOrgs = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("organisations").find(

@@ -1,4 +1,12 @@
-import { TableName } from "./types";
+export type TableName =
+  | "credit_activity"
+  | "exchange_rates"
+  | "organisations"
+  | "projects"
+  | "sales"
+  | "studies"
+  | "teams"
+  | "users";
 
 export const creditTypeMap = {
   0: "Manual adjustment",
@@ -51,42 +59,43 @@ export const studyTypeMap = {
 };
 
 export const studyVideoToolMap = {
-  askableLive: 'Askable Sessions',
-  ciscoWebex: 'Webex',
-  googleMeet: 'Google Meet',
-  hearsay: 'Hearsay',
-  lookback: 'Lookback',
-  loop11: 'Loop11',
-  microsoftTeams: 'Microsoft Teams',
-  skype: 'Skype',
-  validately: 'Validately',
-  zoom: 'Zoom',
-  other: 'Other',
+  askableLive: "Askable Sessions",
+  ciscoWebex: "Webex",
+  googleMeet: "Google Meet",
+  hearsay: "Hearsay",
+  lookback: "Lookback",
+  loop11: "Loop11",
+  microsoftTeams: "Microsoft Teams",
+  skype: "Skype",
+  validately: "Validately",
+  zoom: "Zoom",
+  other: "Other",
 };
 
 export const studyOnlineTaskToolMap = {
-  dscout: 'dscout',
-  googleForms: 'Google Forms',
-  lookback: 'Lookback',
-  loop11: 'Loop11',
-  maze: 'Maze',
-  optimalWorkshop: 'Optimal Workshop',
-  qualtrics: 'Qualtrics',
-  surveyGizmo: 'SurveyGizmo',
-  surveyMonkey: 'SurveyMonkey',
-  typeform: 'Typeform',
-  usabilityHub: 'UsabilityHub',
-  userZoom: 'UserZoom',
-  validately: 'Validately',
-  other: 'Other',
+  dscout: "dscout",
+  googleForms: "Google Forms",
+  lookback: "Lookback",
+  loop11: "Loop11",
+  maze: "Maze",
+  optimalWorkshop: "Optimal Workshop",
+  qualtrics: "Qualtrics",
+  surveyGizmo: "SurveyGizmo",
+  surveyMonkey: "SurveyMonkey",
+  typeform: "Typeform",
+  usabilityHub: "UsabilityHub",
+  userZoom: "UserZoom",
+  validately: "Validately",
+  other: "Other",
 };
 
-export const idFieldName: Record<TableName, string> = {
+export const idFieldName: Record<TableName, string | null> = {
   credit_activity: "ID",
   sales: "ID",
-  exchange_rate_data: "Date_Key",
+  exchange_rates: null,
   booking_submissions: "ID",
   teams: "ID",
+  organisations: "ID",
 };
 
 export const tableUtilColumns = {

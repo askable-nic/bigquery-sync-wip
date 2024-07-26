@@ -2,13 +2,16 @@ import { CloudEventFunction } from "@google-cloud/functions-framework";
 
 import { decodeEventData } from "./lib/util";
 
+// import { syncBookingSubmissions } from "./lib/sync-handlers/booking_submissions";
 import { syncCreditActivity } from "./lib/sync-handlers/credit_activity";
-import { syncTransactions } from "./lib/sync-handlers/sales";
-import { syncBookingSubmissions } from "./lib/sync-handlers/booking_submissions";
+import { pushExchangeRateData } from "./lib/sync-handlers/exchange_rates";
+import { syncOrgs } from "./lib/sync-handlers/organisations";
+import { syncSales } from "./lib/sync-handlers/sales";
+import { syncStudies } from "./lib/sync-handlers/studies";
 import { syncTeams } from "./lib/sync-handlers/teams";
-import { pushExchangeRateData } from "./lib/sync-handlers/exchange_rate_data";
 
-import { TableName } from "./lib/types";
+import type { TableName } from "./lib/constants";
+import type { SyncResult } from "./lib/sync-util";
 
 export const handler: CloudEventFunction<string> = async (cloudEvent) => {
   const { method, table } = decodeEventData(cloudEvent);
@@ -21,12 +24,16 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
     return;
   }
   if (method === "sync") {
-    const syncHandlers: Record<TableName, () => Promise<unknown>> = {
+    const syncHandlers: Record<TableName, () => Promise<SyncResult>> = {
+      // booking_submissions: syncBookingSubmissions,
       credit_activity: syncCreditActivity,
-      sales: syncTransactions,
-      booking_submissions: syncBookingSubmissions,
+      exchange_rates: pushExchangeRateData,
+      organisations: syncOrgs,
+      projects: async () => false,
+      sales: syncSales,
+      studies: syncStudies,
       teams: syncTeams,
-      exchange_rate_data: pushExchangeRateData,
+      users: async () => false,
     };
     try {
       const result = await (async () => {

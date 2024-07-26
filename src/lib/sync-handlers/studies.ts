@@ -1,4 +1,17 @@
 import { Document, ObjectId } from "mongodb";
+import { syncToTable } from "../sync-util";
+import { mongoConnect, safeMapLookup } from "../util";
+import {
+  studyOnlineTaskToolMap,
+  studyStatusMap,
+  studyTypeMap,
+  studyVideoToolMap,
+} from "../constants";
+
+/*
+Partitioned: Created (DAY)
+Clustered by: Status, Type, Askable_Plus
+*/
 
 const emojiSegmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
 const emojiNameMap: Record<string, string> = {
@@ -25,16 +38,7 @@ const emojiLabels = (emojiTagString: string) =>
     return emojiNameMap[unicode] ?? unicode;
   });
 
-import { syncToTable } from "../sync-util";
-import { mongoConnect, safeMapLookup } from "../util";
-import {
-  studyOnlineTaskToolMap,
-  studyStatusMap,
-  studyTypeMap,
-  studyVideoToolMap,
-} from "../constants";
-
-export const syncTeams = async () => {
+export const syncStudies = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("booking").find(

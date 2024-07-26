@@ -2,6 +2,11 @@ import axios from "axios";
 import { env } from "../util";
 import { pushRowsToTable } from "../sync-util";
 
+/*
+Partitioned: Timestamp (DAY)
+Clustered by: Base
+*/
+
 export const pushExchangeRateData = async () => {
   const { data } = await axios.get(
     `https://openexchangerates.org/api/latest.json?app_id=${env.OPENEXCHANGERATES_APP_ID}`
@@ -19,7 +24,7 @@ export const pushExchangeRateData = async () => {
     },
   ];
 
-  const syncResult = await pushRowsToTable("exchange_rate_data", rows);
+  const syncResult = await pushRowsToTable("exchange_rates", rows);
 
   return syncResult;
 };

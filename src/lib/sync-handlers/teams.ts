@@ -2,6 +2,11 @@ import { Document } from "mongodb";
 import { syncToTable } from "../sync-util";
 import { mongoConnect } from "../util";
 
+/*
+Partitioned: (none)
+Clustered by: Operational_Office, Organisation_ID
+*/
+
 export const syncTeams = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
@@ -33,8 +38,11 @@ export const syncTeams = async () => {
               .filter((user: Document) => user._id && user.status !== 0)
               .map((user: Document) => user._id.toString())
           : null,
-        Credit_Balance: doc.settings?.billing?.subscription?.credit?.remaining ?? null,
-        Credit_Expiry: doc.settings?.billing?.subscription?.end ? new Date(doc.settings.billing.subscription.end) : null,
+        Credit_Balance:
+          doc.settings?.billing?.subscription?.credit?.remaining ?? null,
+        Credit_Expiry: doc.settings?.billing?.subscription?.end
+          ? new Date(doc.settings.billing.subscription.end)
+          : null,
       };
     },
     "teams"

@@ -1,6 +1,11 @@
 import { dayDiffMs, mongoConnect } from "../util";
 import { syncToTable } from "../sync-util";
 
+/*
+Partitioned: Date (DAY)
+Clustered by: Status, Eligibility
+*/
+
 export const syncBookingSubmissions = async () => {
   const { db, client: mongoClient } = await mongoConnect();
 

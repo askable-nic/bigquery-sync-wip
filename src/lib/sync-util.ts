@@ -7,8 +7,8 @@ import { WriteStream } from "@google-cloud/bigquery-storage/build/src/managedwri
 import { Document, FindCursor } from "mongodb";
 
 import { env, tmpTableName } from "./util";
-import { TableName } from "./types";
-import { idFieldName, tableUtilColumns } from "./constants";
+
+import { idFieldName, TableName, tableUtilColumns } from "./constants";
 
 type BqDataSyncOptions = {
   batchSize?: number;
@@ -60,10 +60,11 @@ class BqDataSync {
       ? tmpTableName(tableName)
       : tableName; // table to stream data into, which may be a tmp table
 
-    this.idField = idFieldName[tableName];
-    if (!this.idField) {
+    const idField = idFieldName[tableName];
+    if (!idField) {
       throw new Error(`Missing/Invalid ID field for table ${tableName}`);
     }
+    this.idField = idField;
     this.client = new BigQuery();
   }
 
@@ -405,7 +406,7 @@ class BqDataSync {
   }
 }
 
-type SyncResult =
+export type SyncResult =
   | {
       merge?: { inserted?: number; deleted?: number; updated?: number };
     }
@@ -476,4 +477,6 @@ export async function pushRowsToTable(table: TableName, rows: JSONObject[]) {
   await dataSync.writeBatch(rows);
   await dataSync.commitWrites();
   await dataSync.closeStream();
+
+  return true;
 }
