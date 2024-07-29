@@ -1,36 +1,34 @@
-import { syncToTable } from "../sync-util";
-import { mongoConnect } from "../util";
 import { transactionStatusMap, transactionTypeMap } from "../constants";
-import { safeMapLookup } from "../util";
+import { syncToTable } from "../sync-util";
+import { mongoConnect, safeMapLookup } from "../util";
+
+import salesSchema from "../../schema/sales.json";
 
 /*
-Partitioned: ?
-Clustered by: ?
+Partitioned: _sync_time (HOUR)
 */
 
 export const syncSales = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
-    db.collection("credit_activity").find(
-      {},
+    db.collection("transactions").find(
+      { type: { $in: [1, 3] } },
       {
         // sort: { _id: -1 },
         projection: {
           _admin_user_id: 1,
           _booking_id: 1,
-          _from_team_id: 1,
           _id: 1,
           _legacy_id: 1,
-          _project_id: 1,
           _team_id: 1,
-          _to_team_id: 1,
-          _transaction_id: 1,
           _user_id: 1,
+          "invoice.credit_quantity": 1,
+          "invoice.number": 1,
           accounting_type: 1,
-          amount: 1,
+          total_amount: 1,
           comment: 1,
-          created: 1,
-          refund_type: 1,
+          currency: 1,
+          status: 1,
           type: 1,
           updated: 1,
         },
@@ -40,6 +38,7 @@ export const syncSales = async () => {
       const createdDate = doc.created
         ? new Date(doc.created)
         : doc._id.getTimestamp();
+
       return {
         ID: doc._id.toString(),
         Created: createdDate,
@@ -51,10 +50,10 @@ export const syncSales = async () => {
           : null,
         Study_ID: doc._booking_id ? doc._booking_id.toString() : null,
         Amount:
-          typeof doc.amount === "number"
+          typeof doc.total_amount === "number"
             ? doc.accounting_type === 1
-              ? doc.amount
-              : doc.amount * -1
+              ? doc.total_amount
+              : doc.total_amount * -1
             : null,
         Currency: doc.currency ?? null,
         Transaction_Type: safeMapLookup(transactionTypeMap, doc.type),
