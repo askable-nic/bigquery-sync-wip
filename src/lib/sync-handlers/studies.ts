@@ -15,18 +15,18 @@ Clustered by: Status, Type, Askable_Plus
 
 const emojiSegmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
 const emojiNameMap: Record<string, string> = {
-  /* ✅ */ "2705": "Check_Mark",
-  /* 📵 */ "d83d-dcf5": "No_Phones",
+  /* ✅ */ "2705": "Checked in",
+  /* 📵 */ "d83d-dcf5": "BYO",
   /* 💿 */ "d83d-dcbf": "CD",
-  /* 🥵 */ "d83e-dd75": "Overheated_Face",
-  /* ❗ */ "2757": "Exclamation_Mark",
-  /* ❗️ */ "2757-fe0f": "Exclamation_Mark",
-  /* 🧿 */ "d83e-ddff": "Nazar_Amulet",
-  /* 📹 */ "d83d-dcf9": "Video_Camera",
-  /* ✝️ */ "271d-fe0f": "Cross",
-  /* 🚨 */ "d83d-dea8": "Flashing_Light",
-  /* ⭐ */ "2b50": "Star",
-  /* ⭐️ */ "2b50-fe0f": "Star",
+  /* 🥵 */ "d83e-dd75": "Difficult recruit",
+  /* ❗ */ "2757": "Important",
+  /* ❗️ */ "2757-fe0f": "Important",
+  /* 🧿 */ "d83e-ddff": "Advertised",
+  /* 📹 */ "d83d-dcf9": "Sessions",
+  /* ✝️ */ "271d-fe0f": "Plus",
+  /* 🚨 */ "d83d-dea8": "Red alert",
+  /* ⭐ */ "2b50": "First-time booking",
+  /* ⭐️ */ "2b50-fe0f": "First-time booking",
 };
 const emojiLabels = (emojiTagString: string) =>
   Array.from(emojiSegmenter.segment(emojiTagString)).map((entry) => {
@@ -42,7 +42,16 @@ export const syncStudies = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("booking").find(
-      { "config.demo": { $ne: true }, status: { $in: [1, 3, 4, 5, 7] } },
+      {
+        status: { $in: [1, 3, 4, 5, 7] },
+        "config.demo": { $ne: true },
+        $or: [
+          { status: { $ne: 7 } },
+          { confirmed_date: { $ne: null } },
+          { approved_date: { $ne: null } },
+          { fulfilled_date: { $ne: null } },
+        ],
+      },
       {
         // sort: { _id: -1 },
         projection: {
@@ -136,14 +145,26 @@ export const syncStudies = async () => {
 
       const emojiTagNames = emojiLabels(doc?.admin?.emoji ?? "");
 
-      return {
-        ID: doc._id.toString(),
-        Created: created,
-        Updated: doc.updated ? new Date(doc.updated) : created,
+      const studyDates = {
         Submitted: doc.confirmed_date ? new Date(doc.confirmed_date) : null,
         Approved: doc.approved_date ? new Date(doc.approved_date) : null,
         Fulfilled: doc.fulfilled_date ? new Date(doc.fulfilled_date) : null,
         Recruited: doc.recruited_date ? new Date(doc.recruited_date) : null,
+      };
+
+      // Get a close enough date if there are missing values
+      if (!studyDates.Submitted){
+        studyDates.Submitted = studyDates.Approved || created;
+      }
+      if (!studyDates.Approved){
+        studyDates.Approved = studyDates.Submitted || created;
+      }
+
+      return {
+        ID: doc._id.toString(),
+        Created: created,
+        Updated: doc.updated ? new Date(doc.updated) : created,
+        ...studyDates,
         First_Session:
           sessionTimes.first < Infinity ? new Date(sessionTimes.first) : null,
         Last_Session:
