@@ -153,10 +153,10 @@ export const syncStudies = async () => {
       };
 
       // Get a close enough date if there are missing values
-      if (!studyDates.Submitted){
+      if (!studyDates.Submitted) {
         studyDates.Submitted = studyDates.Approved || created;
       }
-      if (!studyDates.Approved){
+      if (!studyDates.Approved) {
         studyDates.Approved = studyDates.Submitted || created;
       }
 
@@ -194,12 +194,11 @@ export const syncStudies = async () => {
         BYO: !!doc?.config?.recruitment?.byo,
         Askable_Plus: emojiTagNames.includes(emojiNameMap["271d-fe0f"]),
         NUFP: !!doc?.admin?.tags?.nufp,
-        Video_Tool: doc?.config?.remote?.tool
-          ? safeMapLookup(studyVideoToolMap, doc.config.remote.tool)
-          : null,
-        Online_Task_Tool: doc?.config?.online_task?.tool
-          ? safeMapLookup(studyOnlineTaskToolMap, doc.config.online_task.tool)
-          : null,
+        Video_Tool: safeMapLookup(studyVideoToolMap, doc?.config?.remote?.tool),
+        Online_Task_Tool: safeMapLookup(
+          studyOnlineTaskToolMap,
+          doc?.config?.online_task?.tool
+        ),
         Emoji_Tags: emojiTagNames,
       };
     },

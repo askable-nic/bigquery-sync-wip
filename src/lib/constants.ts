@@ -58,6 +58,17 @@ export const studyTypeMap = {
   3: "Online task",
 };
 
+export const projectTypeMap = {
+  1: "Askable+",
+};
+
+export const projectStatusMap = {
+  0: "Draft",
+  1: "Active",
+  5: "Completed",
+  7: "Archived",
+};
+
 export const studyVideoToolMap = {
   askableLive: "Askable Sessions",
   ciscoWebex: "Webex",

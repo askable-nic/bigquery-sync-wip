@@ -7,6 +7,20 @@
     "fields": []
   },
   {
+    "name": "Created",
+    "mode": "REQUIRED",
+    "type": "TIMESTAMP",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Updated",
+    "mode": "NULLABLE",
+    "type": "TIMESTAMP",
+    "description": "",
+    "fields": []
+  },
+  {
     "name": "Name",
     "mode": "NULLABLE",
     "type": "STRING",
@@ -24,6 +38,13 @@
     "name": "Askable_Plus",
     "type": "BOOLEAN",
     "mode": "NULLABLE"
+  },
+  {
+    "name": "Status",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
   },
   {
     "name": "_uuid",

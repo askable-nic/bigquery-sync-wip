@@ -6,6 +6,7 @@ import { decodeEventData } from "./lib/util";
 import { syncCreditActivity } from "./lib/sync-handlers/credit_activity";
 import { pushExchangeRateData } from "./lib/sync-handlers/exchange_rates";
 import { syncOrgs } from "./lib/sync-handlers/organisations";
+import { syncProjects } from "./lib/sync-handlers/projects";
 import { syncSales } from "./lib/sync-handlers/sales";
 import { syncStudies } from "./lib/sync-handlers/studies";
 import { syncTeams } from "./lib/sync-handlers/teams";
@@ -29,7 +30,7 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
       credit_activity: syncCreditActivity,
       exchange_rates: pushExchangeRateData,
       organisations: syncOrgs,
-      projects: async () => false,
+      projects: syncProjects,
       sales: syncSales,
       studies: syncStudies,
       teams: syncTeams,
