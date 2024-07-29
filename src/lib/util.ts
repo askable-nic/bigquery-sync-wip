@@ -3,6 +3,7 @@ import { CloudEvent } from "@google-cloud/functions-framework";
 import { MongoClient, ServerApiVersion } from "mongodb";
 import dotenv from "dotenv";
 import { TableName } from "./constants";
+import { JSONObject } from "@google-cloud/bigquery-storage/build/src/managedwriter/json_writer";
 
 dotenv.config();
 

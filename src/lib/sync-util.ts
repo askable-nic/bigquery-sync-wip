@@ -29,6 +29,8 @@ class BqDataSync {
     fields: TableField[];
   };
 
+  stats: Record<string, number | undefined> = {};
+
   hasUuidField = false;
   hasSyncTimeField = false;
 
@@ -154,13 +156,32 @@ class BqDataSync {
     }
   }
 
+  async appendRow(pw: PendingWrite) {
+    try {
+      const result = await pw.getResult();
+      if (result.error) {
+        console.error(result.error);
+        console.error(result.rowErrors);
+        throw new Error(
+          `[${result.error?.code || "?"}] ${
+            result.error?.message || "Unknown error"
+          }`
+        );
+      }
+      return result;
+    } catch (e) {
+      console.error("Error appending rows", e);
+      process.exit(1);
+    }
+  }
+
   writeBatch(rows: JSONObject[]) {
     if (!this.ready || !this.writer) {
       throw new Error("Not initialized");
     }
     const pw = this.writer.appendRows(rows, this.pwOffset);
     this.pwOffset += rows.length;
-    this.writePromises.push(pw.getResult());
+    this.writePromises.push(this.appendRow(pw));
   }
 
   async commitWrites() {
@@ -183,6 +204,10 @@ class BqDataSync {
       "Connection finalized",
       connectionFinalizeResult
     );
+
+    if (connectionFinalizeResult?.rowCount) {
+      this.stats.writeStreamInserts = Number(connectionFinalizeResult.rowCount);
+    }
 
     // const finalizeResponse = await this.writeClient.finalizeWriteStream({
     //   name: this.writeStream.name,
@@ -341,6 +366,10 @@ class BqDataSync {
       dmlStats: (result as unknown as { dmlStats: unknown })?.dmlStats,
     });
 
+    if (result?.numDmlAffectedRows) {
+      this.stats.dedupedRows = Number(result.numDmlAffectedRows);
+    }
+
     console.log(this.timeElapsed, await this.countAllTableRows());
   }
 
@@ -414,11 +443,7 @@ class BqDataSync {
   }
 }
 
-export type SyncResult =
-  | {
-      merge?: { inserted?: number; deleted?: number; updated?: number };
-    }
-  | boolean;
+export type SyncResult = Record<string, number | undefined> | boolean;
 
 export const syncToTable = async (
   cursor: FindCursor,
@@ -432,6 +457,7 @@ export const syncToTable = async (
   try {
     await dataSync.init();
 
+    dataSync.stats.initialTableSize = await dataSync.countRows(table);
     console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
 
     let totalRows = 0;
@@ -456,6 +482,7 @@ export const syncToTable = async (
     }
 
     console.log(dataSync.timeElapsed, "Finished paging the cursor", totalRows);
+    dataSync.stats.queriedRows = totalRows;
 
     if (appendRowBatch.length) {
       dataSync.writeBatch(appendRowBatch);
@@ -467,7 +494,9 @@ export const syncToTable = async (
       console.warn("Failed to dedupe table", e);
     });
 
-    return true;
+    dataSync.stats.finalTableSize = await dataSync.countRows(table);
+
+    return dataSync.stats;
   } catch (e) {
     console.error("Error syncing to table", e);
   } finally {
