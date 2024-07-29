@@ -9,7 +9,7 @@ import {
 } from "../constants";
 
 /*
-Partitioned: Created (DAY)
+Partitioned: _sync_time (HOUR)
 Clustered by: Status, Type, Askable_Plus
 */
 

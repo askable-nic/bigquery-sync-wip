@@ -3,7 +3,7 @@ import { dayDiffMs, mongoConnect, safeMapLookup } from "../util";
 import { creditTypeMap, refundTypeMap } from "../constants";
 
 /*
-Partitioned: Created (DAY)
+Partitioned: _sync_time (HOUR)
 Clustered by: Team_ID, Type
 */
 

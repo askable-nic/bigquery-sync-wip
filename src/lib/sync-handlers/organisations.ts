@@ -2,7 +2,7 @@ import { syncToTable } from "../sync-util";
 import { mongoConnect } from "../util";
 
 /*
-Partitioned: (none)
+Partitioned: _sync_time (HOUR)
 Clustered by: (none)
 */
 
