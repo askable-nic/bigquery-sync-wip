@@ -11,7 +11,7 @@ export const syncCreditActivity = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("credit_activity").find(
-      { updated: { $gt: dayDiffMs(7) } },
+      { updated: { $gt: dayDiffMs(1) } },
       {
         sort: { _id: -1 },
         projection: {

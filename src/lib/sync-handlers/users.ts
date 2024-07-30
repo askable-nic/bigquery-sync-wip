@@ -1,5 +1,5 @@
 import { syncToTable } from "../sync-util";
-import { mongoConnect } from "../util";
+import { dayDiffMs, mongoConnect } from "../util";
 
 /*
 Partitioned: _sync_time (HOUR)
@@ -10,14 +10,14 @@ export const syncUsers = async () => {
   const { db, client: mongoClient } = await mongoConnect();
   const syncResult = await syncToTable(
     db.collection("user").find(
-      { status: 1 },
+      { status: 1, updated: { $gt: dayDiffMs(1) } },
       {
         // sort: { _id: -1 },
         projection: {
           _id: 1,
-          'location.country': 1,
-          'meta.identity.firstname': 1,
-          'meta.identity.lastname': 1,
+          "location.country": 1,
+          "meta.identity.firstname": 1,
+          "meta.identity.lastname": 1,
           blacklist: 1,
           created: 1,
           type: 1,
