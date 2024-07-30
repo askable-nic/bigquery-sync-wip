@@ -21,15 +21,12 @@ IF
   OR (Project.Askable_Plus IS TRUE) AS Askable_Plus,
   --
   User.Name AS User,
-  AdminUser.Name AS Admin_User,
   CreditActivity.Comment
-FROM
-  `askable-operations-test.operations_data_warehouse_test.credit_activity` AS CreditActivity
+FROM `askable-operations-test.operations_data_warehouse_test.credit_activity` AS CreditActivity
 LEFT JOIN `askable-operations-test.operations_data_warehouse_test.teams` AS Team ON Team.ID = CreditActivity.Team_ID
 LEFT JOIN `askable-operations-test.operations_data_warehouse_test.organisations` AS Org ON Org.ID = Team.Organisation_ID
 LEFT JOIN `askable-operations-test.operations_data_warehouse_test.studies` AS Study ON Study.ID = CreditActivity.Study_ID
 LEFT JOIN `askable-operations-test.operations_data_warehouse_test.projects` AS PROJECT ON Project.ID = CreditActivity.Project_ID
 LEFT JOIN `askable-operations-test.operations_data_warehouse_test.users` AS User ON User.ID = CreditActivity.User_ID
-LEFT JOIN `askable-operations-test.operations_data_warehouse_test.users` AS AdminUser ON AdminUser.ID = CreditActivity.Admin_User_ID
 WHERE
   CreditActivity.Usage IS TRUE
