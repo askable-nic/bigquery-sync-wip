@@ -4,7 +4,7 @@ import { creditTypeMap, refundTypeMap } from "../constants";
 
 /*
 Partitioned: _sync_time (HOUR)
-Clustered by: Team_ID, Type
+Clustered by: Usage
 */
 
 export const syncCreditActivity = async () => {

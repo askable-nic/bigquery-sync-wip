@@ -54,14 +54,7 @@
     "type": "STRING",
     "description": "",
     "fields": []
-  },
-  {
-    "name": "Askable_Plus",
-    "mode": "NULLABLE",
-    "type": "BOOLEAN",
-    "description": "",
-    "fields": []
-  },
+  }, 
   {
     "name": "Transaction_ID",
     "mode": "NULLABLE",
