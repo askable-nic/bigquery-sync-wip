@@ -35,6 +35,20 @@
     "fields": []
   },
   {
+    "name": "Country",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Participant_Blacklist",
+    "mode": "NULLABLE",
+    "type": "BOOLEAN",
+    "description": "",
+    "fields": []
+  },
+  {
     "name": "_uuid",
     "mode": "NULLABLE",
     "type": "STRING",

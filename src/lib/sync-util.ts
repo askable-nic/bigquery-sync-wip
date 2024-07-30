@@ -447,7 +447,7 @@ export type SyncResult = Record<string, number | undefined> | boolean;
 
 export const syncToTable = async (
   cursor: FindCursor,
-  transform: (document: Document) => JSONObject,
+  transform: (document: Document) => JSONObject | undefined,
   table: TableName
 ): Promise<SyncResult> => {
   const dataSync = new BqDataSync(table, {
@@ -474,7 +474,11 @@ export const syncToTable = async (
 
     for await (const document of cursor) {
       totalRows += 1;
-      appendRowBatch.push(transform(document));
+      const row = transform(document);
+      if (!row) {
+        continue;
+      }
+      appendRowBatch.push(row);
       if (appendRowBatch.length >= dataSync.writeBatchSize) {
         dataSync.writeBatch(appendRowBatch);
         appendRowBatch = [];

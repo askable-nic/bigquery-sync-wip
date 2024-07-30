@@ -10,6 +10,7 @@ import { syncProjects } from "./lib/sync-handlers/projects";
 import { syncSales } from "./lib/sync-handlers/sales";
 import { syncStudies } from "./lib/sync-handlers/studies";
 import { syncTeams } from "./lib/sync-handlers/teams";
+import { syncUsers } from "./lib/sync-handlers/users";
 
 import type { TableName } from "./lib/constants";
 import type { SyncResult } from "./lib/sync-util";
@@ -34,7 +35,7 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
       sales: syncSales,
       studies: syncStudies,
       teams: syncTeams,
-      users: async () => false,
+      users: syncUsers,
     };
     try {
       const result = await (async () => {
