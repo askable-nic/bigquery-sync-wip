@@ -2,8 +2,6 @@ import { transactionStatusMap, transactionTypeMap } from "../constants";
 import { syncToTable } from "../sync-util";
 import { mongoConnect, safeMapLookup } from "../util";
 
-import salesSchema from "../../schema/sales.json";
-
 /*
 Partitioned: _sync_time (HOUR)
 */
