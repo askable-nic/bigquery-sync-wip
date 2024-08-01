@@ -1,5 +1,5 @@
 import { transactionStatusMap, transactionTypeMap } from "../constants";
-import { syncToTable } from "../sync-util";
+import { syncQueryToTable } from "../sync-util";
 import { mongoConnect, safeMapLookup } from "../util";
 
 /*
@@ -8,7 +8,7 @@ Partitioned: _sync_time (HOUR)
 
 export const syncSales = async () => {
   const { db, client: mongoClient } = await mongoConnect();
-  const syncResult = await syncToTable(
+  const syncResult = await syncQueryToTable(
     db.collection("transactions").find(
       { type: { $in: [1, 3] } },
       {
@@ -37,6 +37,28 @@ export const syncSales = async () => {
         ? new Date(doc.created)
         : doc._id.getTimestamp();
 
+      const amountTotal =
+        typeof doc.total_amount === "number"
+          ? doc.accounting_type === 1
+            ? doc.total_amount
+            : doc.total_amount * -1
+          : null;
+
+      const currency = doc.currency ?? null;
+
+      const amountExTax = (() => {
+        if (amountTotal === null || currency === null) {
+          return null;
+        }
+        if (currency === "AUD") {
+          return amountTotal / 1.1; // 10% GST
+        }
+        if (currency === "GBP") {
+          return amountTotal / 1.2; // 20% VAT
+        }
+        return amountTotal;
+      })();
+
       return {
         ID: doc._id.toString(),
         Created: createdDate,
@@ -47,12 +69,9 @@ export const syncSales = async () => {
           ? doc._admin_user_id.toString()
           : null,
         Study_ID: doc._booking_id ? doc._booking_id.toString() : null,
-        Amount:
-          typeof doc.total_amount === "number"
-            ? doc.accounting_type === 1
-              ? doc.total_amount
-              : doc.total_amount * -1
-            : null,
+        Amount: amountExTax,
+        Amount_Inc_Tax: amountTotal,
+        // Amount_Ex_Tax: amountExTax,
         Currency: doc.currency ?? null,
         Transaction_Type: safeMapLookup(transactionTypeMap, doc.type),
         Status: safeMapLookup(transactionStatusMap, doc.status),

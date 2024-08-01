@@ -9,6 +9,7 @@ SELECT
   Team.Name AS Team_Name,
   Team.Organisation_ID AS Organisation_ID,
   Org.Name AS Organisation_Name,
+  Team.Operational_Office as Operational_Office,
 IF
   (Team.Name IS NULL, NULL, CONCAT(
     IF

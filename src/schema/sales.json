@@ -52,7 +52,14 @@
     "name": "Amount",
     "mode": "REQUIRED",
     "type": "NUMERIC",
-    "description": "",
+    "description": "Amount excluding tax",
+    "fields": []
+  },
+  {
+    "name": "Amount_Inc_Tax",
+    "mode": "REQUIRED",
+    "type": "NUMERIC",
+    "description": "Amount including tax",
     "fields": []
   },
   {
