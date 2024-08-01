@@ -1,18 +1,17 @@
 FROM node:22-alpine
 
 RUN addgroup app && adduser -S -G app app
+RUN mkdir /app && chown -R app:app /app
+USER app
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY package.json package-lock.json tsconfig.json .env ./
+COPY --chown=app:app package*.json tsconfig.json .env ./
 RUN npm install
 
 # Copy source code and build
-COPY src/ ./src/
+COPY --chown=app:app src/ ./src/
 RUN npm run build
 
-# Copy built files
-COPY dist/ ./
-
 # Start the application
-CMD [ "node", "./index.js" ]
+CMD [ "node", "./dist/index.js" ]
