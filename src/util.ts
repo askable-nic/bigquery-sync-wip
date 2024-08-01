@@ -1,5 +1,4 @@
 import { BigQuery, TableField } from "@google-cloud/bigquery";
-import { CloudEvent } from "@google-cloud/functions-framework";
 import { MongoClient, ServerApiVersion } from "mongodb";
 import dotenv from "dotenv";
 import { TableName } from "./constants";
@@ -8,49 +7,32 @@ dotenv.config();
 
 type EventDataSchema = {
   table?: TableName;
-  method?: "sync";
+  // method: "sync";
   options?: Record<string, unknown>;
 };
 
-export const decodeEventData = (
-  event: CloudEvent<string>,
-  defaultValue: EventDataSchema = {}
-) => {
-  if (process.env.MOCK_EVENT_DATA) {
-    try {
-      return JSON.parse(process.env.MOCK_EVENT_DATA) as EventDataSchema;
-    } catch (e) {
-      return defaultValue;
-    }
-  }
-  if (process.env.ENV === "dev" && typeof event?.query === "object") {
-    const query = event.query as unknown as EventDataSchema;
-    return {
-      table: query?.table,
-      method: query?.method,
-    };
-  }
-
-  const data = event.data;
-
-  if (!data) {
-    return defaultValue;
-  }
-  try {
-    const decoded = JSON.parse(
-      Buffer.from(data, "base64").toString()
-    ) as EventDataSchema;
-    return decoded;
-  } catch (e) {
-    return defaultValue;
-  }
-};
-
 export const env = process.env as {
+  // SYNC_METHOD?: string;
+  SYNC_TABLE?: string;
+  SYNC_OPTIONS?: string;
   ANALYTICS_DB_URI: string;
   BIGQUERY_DATASET: string;
   OPENEXCHANGERATES_APP_ID: string;
 };
+
+export function safeJson(data: string) {
+  try {
+    return JSON.parse(data);
+  } catch {
+    return undefined;
+  }
+}
+
+export const jobParams = (): EventDataSchema => ({
+  table: env.SYNC_TABLE as unknown as TableName,
+  // method: "sync",
+  options: safeJson(env.SYNC_OPTIONS ?? "") ?? undefined,
+});
 
 export const mongoConnect = async (dbName: string = "askable") => {
   if (!env.ANALYTICS_DB_URI) {

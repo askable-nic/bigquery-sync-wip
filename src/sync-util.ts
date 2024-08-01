@@ -29,7 +29,7 @@ class BqDataSync {
     fields: TableField[];
   };
 
-  stats: Record<string, number | undefined> = {};
+  stats: SyncResultStats = {};
 
   hasUuidField = false;
   hasSyncTimeField = false;
@@ -443,7 +443,10 @@ class BqDataSync {
   }
 }
 
-export type SyncResult = Record<string, number | undefined> | boolean;
+type SyncResultStats = Record<string, number | undefined>;
+export type SyncResult =
+  | { success: false; error?: unknown }
+  | { success: true; stats: SyncResultStats };
 
 export const syncQueryToTable = async (
   cursor: FindCursor,
@@ -500,15 +503,14 @@ export const syncQueryToTable = async (
 
     dataSync.stats.finalTableSize = await dataSync.countRows(table);
 
-    return dataSync.stats;
+    return { success: true, stats: dataSync.stats };
   } catch (e) {
     console.error("Error syncing to table", e);
+    return { success: false, error: e };
   } finally {
     dataSync.stopLogging();
     await Promise.all([cursor.close(), dataSync.closeStream()]);
   }
-
-  return false;
 };
 
 export const syncRowsToTable = async (
@@ -539,24 +541,28 @@ export const syncRowsToTable = async (
 
     dataSync.stats.finalTableSize = await dataSync.countRows(table);
 
-    return dataSync.stats;
+    return { success: true, stats: dataSync.stats };
   } catch (e) {
     console.error("Error syncing to table", e);
+    return { success: false, error: e };
   } finally {
     dataSync.stopLogging();
     await dataSync.closeStream();
   }
-
-  return false;
 };
 
 // For pushing a small number of rows, with no dedupe logic
 export async function pushRowsToTable(table: TableName, rows: JSONObject[]) {
   const dataSync = new BqDataSync(table);
-  await dataSync.init();
-  await dataSync.writeBatch(rows);
-  await dataSync.commitWrites();
-  await dataSync.closeStream();
-
-  return true;
+  try {
+    await dataSync.init();
+    await dataSync.writeBatch(rows);
+    await dataSync.commitWrites();
+    return { success: true, stats: dataSync.stats };
+  } catch (e) {
+    console.error("Error syncing to table", e);
+    return { success: false, error: e };
+  } finally {
+    await dataSync.closeStream();
+  }
 }
