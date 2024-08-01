@@ -1,6 +1,6 @@
 import { transactionStatusMap, transactionTypeMap } from "../constants";
 import { syncQueryToTable } from "../sync-util";
-import { mongoConnect, safeMapLookup } from "../util";
+import { mongoConnect, round, safeMapLookup } from "../util";
 
 /*
 Partitioned: _sync_time (HOUR)
@@ -44,12 +44,13 @@ export const syncSales = async () => {
             : doc.total_amount * -1
           : null;
 
-      const currency = doc.currency ?? null;
+      const currency: string | null = doc.currency ?? null;
+
+      if (amountTotal === null || !currency) {
+        return undefined;
+      }
 
       const amountExTax = (() => {
-        if (amountTotal === null || currency === null) {
-          return null;
-        }
         if (currency === "AUD") {
           return amountTotal / 1.1; // 10% GST
         }
@@ -69,8 +70,8 @@ export const syncSales = async () => {
           ? doc._admin_user_id.toString()
           : null,
         Study_ID: doc._booking_id ? doc._booking_id.toString() : null,
-        Amount: amountExTax,
-        Amount_Inc_Tax: amountTotal,
+        Amount: round(amountExTax, 6),
+        Amount_Inc_Tax: round(amountTotal, 6),
         // Amount_Ex_Tax: amountExTax,
         Currency: doc.currency ?? null,
         Transaction_Type: safeMapLookup(transactionTypeMap, doc.type),

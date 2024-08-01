@@ -109,3 +109,10 @@ export const bqTableMeta = async (
 
 export const dayDiffMs = (days: number) =>
   Date.now() - days * 24 * 60 * 60 * 1000;
+
+export const round = (v: number | null | undefined, decimals: number = 0) => {
+  if (typeof v !== "number") {
+    return null;
+  }
+  return Math.round(v * 10 ** decimals) / 10 ** decimals;
+}
