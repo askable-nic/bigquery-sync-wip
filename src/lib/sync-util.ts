@@ -445,7 +445,7 @@ class BqDataSync {
 
 export type SyncResult = Record<string, number | undefined> | boolean;
 
-export const syncToTable = async (
+export const syncQueryToTable = async (
   cursor: FindCursor,
   transform: (document: Document) => JSONObject | undefined,
   table: TableName
@@ -506,6 +506,45 @@ export const syncToTable = async (
   } finally {
     dataSync.stopLogging();
     await Promise.all([cursor.close(), dataSync.closeStream()]);
+  }
+
+  return false;
+};
+
+export const syncRowsToTable = async (
+  rows: JSONObject[],
+  table: TableName
+): Promise<SyncResult> => {
+  const dataSync = new BqDataSync(table, {
+    batchSize: 2000,
+    useTmpTable: false,
+  });
+  try {
+    await dataSync.init();
+
+    dataSync.stats.initialTableSize = await dataSync.countRows(table);
+    console.log(dataSync.timeElapsed, await dataSync.countAllTableRows());
+
+    dataSync.startLogging(5000, () => ({
+      function: "syncFindToTable",
+      table,
+    }));
+
+    await dataSync.writeBatch(rows);
+    await dataSync.commitWrites();
+
+    await dataSync.dedupeWriteTable().catch((e) => {
+      console.warn("Failed to dedupe table", e);
+    });
+
+    dataSync.stats.finalTableSize = await dataSync.countRows(table);
+
+    return dataSync.stats;
+  } catch (e) {
+    console.error("Error syncing to table", e);
+  } finally {
+    dataSync.stopLogging();
+    await dataSync.closeStream();
   }
 
   return false;

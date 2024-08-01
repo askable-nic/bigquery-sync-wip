@@ -1,5 +1,12 @@
 [
   {
+    "name": "ID",
+    "mode": "REQUIRED",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
     "name": "Timestamp",
     "mode": "REQUIRED",
     "type": "TIMESTAMP",
@@ -7,16 +14,44 @@
     "fields": []
   },
   {
-    "name": "Base",
+    "name": "Currency",
     "mode": "NULLABLE",
     "type": "STRING",
     "description": "",
     "fields": []
   },
   {
-    "name": "Rates",
+    "name": "Rate_To_AUD",
     "mode": "NULLABLE",
-    "type": "JSON",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Rate_To_USD",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "Rate_To_GBP",
+    "mode": "NULLABLE",
+    "type": "FLOAT",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "_uuid",
+    "mode": "NULLABLE",
+    "type": "STRING",
+    "description": "",
+    "fields": []
+  },
+  {
+    "name": "_sync_time",
+    "mode": "NULLABLE",
+    "type": "TIMESTAMP",
     "description": "",
     "fields": []
   }

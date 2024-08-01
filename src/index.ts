@@ -4,7 +4,7 @@ import { decodeEventData } from "./lib/util";
 
 // import { syncBookingSubmissions } from "./lib/sync-handlers/booking_submissions";
 import { syncCreditActivity } from "./lib/sync-handlers/credit_activity";
-import { pushExchangeRateData } from "./lib/sync-handlers/exchange_rates";
+import { syncExchangeRateData } from "./lib/sync-handlers/exchange_rates";
 import { syncOrgs } from "./lib/sync-handlers/organisations";
 import { syncProjects } from "./lib/sync-handlers/projects";
 import { syncSales } from "./lib/sync-handlers/sales";
@@ -29,7 +29,7 @@ export const handler: CloudEventFunction<string> = async (cloudEvent) => {
     const syncHandlers: Record<TableName, () => Promise<SyncResult>> = {
       // booking_submissions: syncBookingSubmissions,
       credit_activity: syncCreditActivity,
-      exchange_rates: pushExchangeRateData,
+      exchange_rates: syncExchangeRateData,
       organisations: syncOrgs,
       projects: syncProjects,
       sales: syncSales,

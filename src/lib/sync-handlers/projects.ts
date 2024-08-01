@@ -1,5 +1,5 @@
 import { projectStatusMap, projectTypeMap } from "../constants";
-import { syncToTable } from "../sync-util";
+import { syncQueryToTable } from "../sync-util";
 import { mongoConnect, safeMapLookup } from "../util";
 
 /*
@@ -10,7 +10,7 @@ Clustered by: (none)
 export const syncProjects = async () => {
   const { db, client: mongoClient } = await mongoConnect();
 
-  const syncResult = await syncToTable(
+  const syncResult = await syncQueryToTable(
     db.collection("project").find(
       { type: { $in: Object.keys(projectTypeMap).map(Number) } },
       {

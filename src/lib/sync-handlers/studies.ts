@@ -1,5 +1,5 @@
 import { Document, ObjectId } from "mongodb";
-import { syncToTable } from "../sync-util";
+import { syncQueryToTable } from "../sync-util";
 import { mongoConnect, safeMapLookup } from "../util";
 import {
   studyOnlineTaskToolMap,
@@ -40,7 +40,7 @@ const emojiLabels = (emojiTagString: string) =>
 
 export const syncStudies = async () => {
   const { db, client: mongoClient } = await mongoConnect();
-  const syncResult = await syncToTable(
+  const syncResult = await syncQueryToTable(
     db.collection("booking").find(
       {
         status: { $in: [1, 3, 4, 5, 7] },

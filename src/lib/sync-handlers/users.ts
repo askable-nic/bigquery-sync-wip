@@ -1,4 +1,4 @@
-import { syncToTable } from "../sync-util";
+import { syncQueryToTable } from "../sync-util";
 import { dayDiffMs, mongoConnect } from "../util";
 
 /*
@@ -8,7 +8,7 @@ Clustered by: Type, Country
 
 export const syncUsers = async () => {
   const { db, client: mongoClient } = await mongoConnect();
-  const syncResult = await syncToTable(
+  const syncResult = await syncQueryToTable(
     db.collection("user").find(
       { status: 1, updated: { $gt: dayDiffMs(1) } },
       {
