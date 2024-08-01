@@ -1,5 +1,6 @@
 FROM node:22-alpine
 
+RUN addgroup app && adduser -S -G app app
 WORKDIR /app
 
 # Copy package files and install dependencies
