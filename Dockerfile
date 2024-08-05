@@ -10,4 +10,5 @@ COPY src/ ./src/
 RUN npm run build
 
 USER node
+HEALTHCHECK NONE
 CMD [ "node", "./dist/index.js" ]
