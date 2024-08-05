@@ -1,54 +1,50 @@
-import { CloudEventFunction } from "@google-cloud/functions-framework";
-
-import { decodeEventData } from "./lib/util";
+import { jobParams } from "./util";
 
 // import { syncBookingSubmissions } from "./lib/sync-handlers/booking_submissions";
-import { syncCreditActivity } from "./lib/sync-handlers/credit_activity";
-import { syncExchangeRateData } from "./lib/sync-handlers/exchange_rates";
-import { syncOrgs } from "./lib/sync-handlers/organisations";
-import { syncProjects } from "./lib/sync-handlers/projects";
-import { syncSales } from "./lib/sync-handlers/sales";
-import { syncStudies } from "./lib/sync-handlers/studies";
-import { syncTeams } from "./lib/sync-handlers/teams";
-import { syncUsers } from "./lib/sync-handlers/users";
+import { syncCreditActivity } from "./sync-handlers/credit_activity";
+import { syncExchangeRateData } from "./sync-handlers/exchange_rates";
+import { syncOrgs } from "./sync-handlers/organisations";
+import { syncProjects } from "./sync-handlers/projects";
+import { syncSales } from "./sync-handlers/sales";
+import { syncStudies } from "./sync-handlers/studies";
+import { syncTeams } from "./sync-handlers/teams";
+import { syncUsers } from "./sync-handlers/users";
 
-import type { TableName } from "./lib/constants";
-import type { SyncResult } from "./lib/sync-util";
+import type { TableName } from "./constants";
+import type { SyncResult } from "./sync-util";
 
-export const handler: CloudEventFunction<string> = async (cloudEvent) => {
-  const { method, table } = decodeEventData(cloudEvent);
-  if (!method) {
-    console.error("No method found in event data");
-    return;
-  }
+export const main = async () => {
+  const { table } = jobParams();
   if (!table) {
-    console.error("No table found in event data");
-    return;
+    throw new Error("Table name is required");
   }
-  if (method === "sync") {
-    const syncHandlers: Record<TableName, () => Promise<SyncResult>> = {
-      // booking_submissions: syncBookingSubmissions,
-      credit_activity: syncCreditActivity,
-      exchange_rates: syncExchangeRateData,
-      organisations: syncOrgs,
-      projects: syncProjects,
-      sales: syncSales,
-      studies: syncStudies,
-      teams: syncTeams,
-      users: syncUsers,
-    };
-    try {
-      const result = await (async () => {
-        if (!syncHandlers[table]) {
-          throw new Error(`Table ${table} is not handled`);
-        }
-        return await syncHandlers[table]();
-      })();
-      console.log(`Finished syncing ${table}: ${JSON.stringify(result)}`);
-      return result;
-    } catch (error) {
-      console.error(error);
+  const syncHandlers: Record<TableName, () => Promise<SyncResult>> = {
+    // booking_submissions: syncBookingSubmissions,
+    credit_activity: syncCreditActivity,
+    exchange_rates: syncExchangeRateData,
+    organisations: syncOrgs,
+    projects: syncProjects,
+    sales: syncSales,
+    studies: syncStudies,
+    teams: syncTeams,
+    users: syncUsers,
+  };
+  const result = await (async () => {
+    if (!syncHandlers[table]) {
+      throw new Error(`Table ${table} is not handled`);
     }
-  }
-  console.error(`Unhandled method ${method}`);
+    return await syncHandlers[table]();
+  })();
+  console.log(`Finished syncing ${table}: ${JSON.stringify(result)}`);
+  return result;
 };
+
+main()
+  .then((result) => {
+    console.log("Sync complete", result);
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1); // Retry Job Task by exiting the process
+  });
