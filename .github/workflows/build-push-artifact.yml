@@ -12,7 +12,6 @@ on:
 env:
   GAR_HOST: ${{ vars.GAR_HOST }}
   GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
-  SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
 
 jobs:
   build-push-artifact:
@@ -24,7 +23,8 @@ jobs:
       - id: "auth"
         uses: "google-github-actions/auth@v1"
         with:
-          credentials_json: "${{ env.SERVICE_ACCOUNT_KEY }}"
+          project_id: '${{ vars.PROJECT_ID }}'
+          workload_identity_provider: projects/${{ vars.PROJECT_ID }}/locations/global/workloadIdentityPools/github-actions/providers/github-actions
 
       - name: "Set up Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v1"
