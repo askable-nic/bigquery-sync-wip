@@ -15,6 +15,11 @@ env:
   GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
 
 jobs:
+  print-vars:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Print vars"
+        run: echo "env.PROJECT_ID ${{ env.PROJECT_ID }}; vars.PROJECT_ID ${{ vars.PROJECT_ID }}; PROJECT_ID $PROJECT_ID"
   build-push-artifact:
     runs-on: ubuntu-latest
     permissions:
