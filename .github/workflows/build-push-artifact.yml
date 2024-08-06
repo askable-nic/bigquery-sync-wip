@@ -9,6 +9,9 @@ on:
         description: Select the environment
         default: "test"
 
+permissions:
+  id-token: read
+
 env:
   GAR_HOST: ${{ vars.GAR_HOST }}
   GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
