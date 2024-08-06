@@ -10,8 +10,6 @@ on:
         default: "test"
 
 env:
-  PROJECT_ID: ${{ vars.PROJECT_ID }}
-  GAR_HOST: ${{ vars.GAR_HOST }}
   GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
 
 jobs:
@@ -28,7 +26,7 @@ jobs:
         uses: "google-github-actions/auth@v2"
         with:
           project_id: '${{ vars.PROJECT_ID }}'
-          workload_identity_provider: projects/643723673977/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+          workload_identity_provider: projects/${{ vars.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions/providers/github-actions
 
       - name: "Set up Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v2"
@@ -38,11 +36,11 @@ jobs:
 
       - name: "Docker auth"
         run: |-
-          gcloud auth configure-docker ${{ env.GAR_HOST }} --quiet
+          gcloud auth configure-docker ${{ vars.GAR_HOST }} --quiet
 
       - name: Build image
         run: docker build . --file DOCKERFILE_LOCATION --tag ${{ env.GAR_LOCATION }}
-        working-directory: WORKING_DIRECTORY
+        working-directory: ./Dockerfile
 
       - name: Push image
         run: docker push ${{ env.GAR_LOCATION }}
