@@ -7,8 +7,12 @@ on:
       environment:
         type: environment
         description: Select the environment
+
 env:
+  GAR_HOST: ${{ vars.GAR_HOST }}
   GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}:${{ github.sha }}
+  SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+
 jobs:
   build-push-artifact:
     runs-on: ubuntu-latest
@@ -19,7 +23,7 @@ jobs:
       - id: "auth"
         uses: "google-github-actions/auth@v1"
         with:
-          credentials_json: "${{ secrets.SERVICE_ACCOUNT_KEY }}"
+          credentials_json: "${{ env.SERVICE_ACCOUNT_KEY }}"
 
       - name: "Set up Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v1"
@@ -29,7 +33,7 @@ jobs:
 
       - name: "Docker auth"
         run: |-
-          gcloud auth configure-docker ${{ vars.GAR_HOST }} --quiet
+          gcloud auth configure-docker ${{ env.GAR_HOST }} --quiet
 
       - name: Build image
         run: docker build . --file DOCKERFILE_LOCATION --tag ${{ env.GAR_LOCATION }}
