@@ -1,18 +1,15 @@
 # Uses env vars GAR_HOST, PROJECT_ID & REPO_ID, and secrets SERVICE_ACCOUNT_KEY
 
 name: Build and Push to Artifact Registry
-
 on:
   workflow_dispatch:
     inputs:
       environment:
         type: environment
         description: Select the environment
-
 env:
   GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}:${{ github.sha }}
-
-job:
+jobs:
   build-push-artifact:
     runs-on: ubuntu-latest
     steps:
