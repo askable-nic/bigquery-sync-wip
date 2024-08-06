@@ -11,7 +11,7 @@ on:
 
 env:
   GAR_HOST: ${{ vars.GAR_HOST }}
-  GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}:${{ github.sha }}
+  GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
   SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
 
 jobs:
