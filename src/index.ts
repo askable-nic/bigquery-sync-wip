@@ -16,6 +16,8 @@ import type { SyncResult } from "./sync-util";
 export const main = async () => {
   const { table } = jobParams();
   if (!table) {
+    console.log(process.env); // TODO: remove
+    console.log(process.argv); // TODO: remove
     throw new Error("Table name is required");
   }
   const syncHandlers: Record<TableName, () => Promise<SyncResult>> = {
