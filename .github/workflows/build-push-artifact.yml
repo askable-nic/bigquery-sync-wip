@@ -10,7 +10,7 @@ on:
         default: "test"
 
 env:
-  GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
+  GAR_LOCATION: ${{ vars.GAR_HOST }}/${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
 
 jobs:
   build-push-artifact:
