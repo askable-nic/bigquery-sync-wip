@@ -10,6 +10,7 @@ on:
         default: "test"
 
 env:
+  PROJECT_ID: ${{ vars.PROJECT_ID }}
   GAR_HOST: ${{ vars.GAR_HOST }}
   GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
 
@@ -25,8 +26,8 @@ jobs:
       - id: "auth"
         uses: "google-github-actions/auth@v2"
         with:
-          project_id: '${{ env.PROJECT_ID }}'
-          workload_identity_provider: projects/${{ env.PROJECT_ID }}/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+          project_id: '${{ vars.PROJECT_ID }}'
+          workload_identity_provider: projects/${{ vars.PROJECT_ID }}/locations/global/workloadIdentityPools/github-actions/providers/github-actions
 
       - name: "Set up Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v2"
