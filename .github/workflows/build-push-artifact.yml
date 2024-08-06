@@ -9,9 +9,6 @@ on:
         description: Select the environment
         default: "test"
 
-permissions:
-  id-token: read
-
 env:
   GAR_HOST: ${{ vars.GAR_HOST }}
   GAR_LOCATION: ${{ vars.GAR_HOST }}${{ vars.PROJECT_ID }}/${{ vars.REPO_ID }}/data-sync:${{ github.sha }}
@@ -19,6 +16,8 @@ env:
 jobs:
   build-push-artifact:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: read
     steps:
       - name: "Checkout"
         uses: "actions/checkout@v3"
