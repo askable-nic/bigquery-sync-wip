@@ -16,6 +16,7 @@ env:
 
 jobs:
   print-vars:
+    environment: ${{ github.event.inputs.environment }}
     runs-on: ubuntu-latest
     steps:
       - name: "Print vars"
