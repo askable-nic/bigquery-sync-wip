@@ -7,7 +7,7 @@ dotenv.config();
 
 type EventDataSchema = {
   table?: TableName;
-  // method: "sync";
+  method: "sync" | "export";
   options?: Record<string, unknown>;
 };
 
@@ -15,6 +15,7 @@ export const env = process.env as {
   // SYNC_METHOD?: string;
   SYNC_TABLE?: string;
   SYNC_OPTIONS?: string;
+  METHOD?: string;
   ANALYTICS_DB_URI: string;
   BIGQUERY_DATASET: string;
   OPENEXCHANGERATES_APP_ID: string;
@@ -30,7 +31,7 @@ export function safeJson(data: string) {
 
 export const jobParams = (): EventDataSchema => ({
   table: env.SYNC_TABLE as unknown as TableName,
-  // method: "sync",
+  method: env.METHOD as unknown as EventDataSchema["method"] ?? "sync",
   options: safeJson(env.SYNC_OPTIONS ?? "") ?? undefined,
 });
 
