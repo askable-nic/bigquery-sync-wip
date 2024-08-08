@@ -1,4 +1,4 @@
-import { dayDiffMs, mongoConnect } from "../util";
+import { mongoConnect } from "../util";
 import { usersQuery, usersTransform } from "../queries/users";
 import { exportQueryToJsonl } from "../export-util";
 
