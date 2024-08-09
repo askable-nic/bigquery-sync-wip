@@ -69,8 +69,13 @@ export const main = async () => {
 
 main()
   .then((result) => {
-    console.log("Job complete", result);
-    process.exit(0);
+    if(result.success) {
+      console.log("Job complete", result);
+      process.exit(0);
+    } else {
+      console.error("Job failed", result);
+      process.exit(1);
+    }
   })
   .catch((err) => {
     console.error(err);
